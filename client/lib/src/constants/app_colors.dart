@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class AppColors {
   static const Color primary = Color(0xFF283593); // indigo.shade800
   static const Color secondary = Colors.indigoAccent;
+  static const Color blur = Color.fromRGBO(63, 81, 181, 0.8);
 
   // You can add more colors here as needed
   static const Color textPrimary = Colors.white;
