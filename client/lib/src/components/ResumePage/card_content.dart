@@ -2,10 +2,10 @@ import 'package:client/src/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class CardContent extends StatefulWidget {
-  final Widget header;
+  final Widget? header;
   final Widget child;
 
-  const CardContent({super.key, required this.header, required this.child});
+  const CardContent({super.key, this.header, required this.child});
 
   @override
   State<CardContent> createState() => _CardContentState();
@@ -30,7 +30,11 @@ class _CardContentState extends State<CardContent> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [widget.header, SizedBox(height: 16), widget.child],
+        children: [
+          widget.header ?? const SizedBox(),
+          if (widget.header != null) SizedBox(height: 16),
+          widget.child,
+        ],
       ),
     );
   }

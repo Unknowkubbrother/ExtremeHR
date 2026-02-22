@@ -1,3 +1,4 @@
+import 'package:client/src/components/ProfilePage/profile_page.dart';
 import 'package:client/src/components/ResumePage/resume_page.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +17,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     Text('Home Page'),
     ResumePage(),
     Text('Interview Page'),
-    Text('Profile Page'),
+    ProfilePage(),
   ];
 
   static const List<Widget> _widgetTitle = <Widget>[

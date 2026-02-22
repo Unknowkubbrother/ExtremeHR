@@ -7,6 +7,7 @@ class AppColors {
 
   // You can add more colors here as needed
   static const Color textPrimary = Colors.white;
+  static const Color textPrimaryTo = Colors.black;
   static const Color textSecondary = Colors.black54;
   static const Color background = Colors.white;
   static const Color inputTextColor = Color.fromRGBO(117, 117, 117, 1);
