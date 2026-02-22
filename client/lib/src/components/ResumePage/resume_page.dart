@@ -1,5 +1,7 @@
 import 'package:client/src/components/ResumePage/personal_info_card.dart';
 import 'package:client/src/components/ResumePage/skills_card.dart';
+import 'package:client/src/components/ResumePage/education_card.dart';
+import 'package:client/src/components/ResumePage/exprience_card.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/models/personal_info_model.dart';
@@ -16,6 +18,10 @@ class _ResumePageState extends State<ResumePage> {
   final GlobalKey<PersonalInfoCardState> _personalInfoKey =
       GlobalKey<PersonalInfoCardState>();
   final GlobalKey<SkillsCardState> _skillsKey = GlobalKey<SkillsCardState>();
+  final GlobalKey<EducationCardState> _educationKey =
+      GlobalKey<EducationCardState>();
+  final GlobalKey<ExperienceCardState> _experienceKey =
+      GlobalKey<ExperienceCardState>();
   bool _isPersonalInfoEditing = false;
   PersonalInformation _personalData = PersonalInformation(
     fullName: "",
@@ -24,6 +30,8 @@ class _ResumePageState extends State<ResumePage> {
     email: "",
     address: "",
     skills: [],
+    education: [],
+    experience: [],
   );
 
   @override
@@ -83,11 +91,20 @@ class _ResumePageState extends State<ResumePage> {
                               ?.getUpdatedData();
                           final updatedSkills = _skillsKey.currentState
                               ?.getUpdatedSkills();
+                          final updatedEducation = _educationKey.currentState
+                              ?.getUpdatedEducation();
+                          final updatedExperience = _experienceKey.currentState
+                              ?.getUpdatedExperience();
 
-                          if (updatedInfo != null && updatedSkills != null) {
+                          if (updatedInfo != null &&
+                              updatedSkills != null &&
+                              updatedEducation != null &&
+                              updatedExperience != null) {
                             setState(() {
                               _personalData = updatedInfo.copyWith(
                                 skills: updatedSkills,
+                                education: updatedEducation,
+                                experience: updatedExperience,
                               );
                               _isPersonalInfoEditing = false;
                             });
@@ -131,6 +148,16 @@ class _ResumePageState extends State<ResumePage> {
             SkillsCard(
               key: _skillsKey,
               skills: _personalData.skills,
+              isEditing: _isPersonalInfoEditing,
+            ),
+            EducationCard(
+              key: _educationKey,
+              education: _personalData.education,
+              isEditing: _isPersonalInfoEditing,
+            ),
+            ExperienceCard(
+              key: _experienceKey,
+              experience: _personalData.experience,
               isEditing: _isPersonalInfoEditing,
             ),
           ],
