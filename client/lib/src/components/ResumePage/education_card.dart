@@ -47,8 +47,10 @@ class EducationCardState extends State<EducationCard> {
             faculty: "",
             major: "",
             gpax: "",
-            startDate: "",
-            endDate: "",
+            startYear: null,
+            startMonth: null,
+            endYear: null,
+            endMonth: null,
           ),
         ),
       );
@@ -161,16 +163,52 @@ class EducationCardState extends State<EducationCard> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _buildField("Start Date", controllers.startDate)),
-            const SizedBox(width: 12),
-            Expanded(child: _buildField("End Date", controllers.endDate)),
+            Expanded(
+              child: _buildField(
+                "Start Month",
+                controllers.startMonth,
+                isNumber: true,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildField(
+                "Start Year",
+                controllers.startYear,
+                isNumber: true,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildField(
+                "End Month",
+                controllers.endMonth,
+                isNumber: true,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildField(
+                "End Year",
+                controllers.endYear,
+                isNumber: true,
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildField(String title, TextEditingController controller) {
+  Widget _buildField(
+    String title,
+    TextEditingController controller, {
+    bool isNumber = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -186,6 +224,7 @@ class EducationCardState extends State<EducationCard> {
         if (widget.isEditing)
           TextField(
             controller: controller,
+            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
@@ -232,8 +271,10 @@ class EducationEntryControllers {
   final TextEditingController faculty;
   final TextEditingController major;
   final TextEditingController gpax;
-  final TextEditingController startDate;
-  final TextEditingController endDate;
+  final TextEditingController startYear;
+  final TextEditingController startMonth;
+  final TextEditingController endYear;
+  final TextEditingController endMonth;
 
   EducationEntryControllers(Education edu)
     : institution = TextEditingController(text: edu.institution),
@@ -241,8 +282,12 @@ class EducationEntryControllers {
       faculty = TextEditingController(text: edu.faculty),
       major = TextEditingController(text: edu.major),
       gpax = TextEditingController(text: edu.gpax),
-      startDate = TextEditingController(text: edu.startDate),
-      endDate = TextEditingController(text: edu.endDate);
+      startYear = TextEditingController(text: edu.startYear?.toString() ?? ''),
+      startMonth = TextEditingController(
+        text: edu.startMonth?.toString() ?? '',
+      ),
+      endYear = TextEditingController(text: edu.endYear?.toString() ?? ''),
+      endMonth = TextEditingController(text: edu.endMonth?.toString() ?? '');
 
   Education toEducation() {
     return Education(
@@ -251,8 +296,10 @@ class EducationEntryControllers {
       faculty: faculty.text,
       major: major.text,
       gpax: gpax.text,
-      startDate: startDate.text,
-      endDate: endDate.text,
+      startYear: int.tryParse(startYear.text),
+      startMonth: int.tryParse(startMonth.text),
+      endYear: int.tryParse(endYear.text),
+      endMonth: int.tryParse(endMonth.text),
     );
   }
 
@@ -262,7 +309,9 @@ class EducationEntryControllers {
     faculty.dispose();
     major.dispose();
     gpax.dispose();
-    startDate.dispose();
-    endDate.dispose();
+    startYear.dispose();
+    startMonth.dispose();
+    endYear.dispose();
+    endMonth.dispose();
   }
 }

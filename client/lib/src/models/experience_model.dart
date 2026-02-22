@@ -1,30 +1,38 @@
 class Experience {
   final String company;
   final String role;
-  final String startDate;
-  final String endDate;
+  final int? startYear;
+  final int? startMonth;
+  final int? endYear;
+  final int? endMonth;
   final String description;
 
   Experience({
     required this.company,
     required this.role,
-    required this.startDate,
-    required this.endDate,
+    this.startYear,
+    this.startMonth,
+    this.endYear,
+    this.endMonth,
     required this.description,
   });
 
   Experience copyWith({
     String? company,
     String? role,
-    String? startDate,
-    String? endDate,
+    int? startYear,
+    int? startMonth,
+    int? endYear,
+    int? endMonth,
     String? description,
   }) {
     return Experience(
       company: company ?? this.company,
       role: role ?? this.role,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
+      startYear: startYear ?? this.startYear,
+      startMonth: startMonth ?? this.startMonth,
+      endYear: endYear ?? this.endYear,
+      endMonth: endMonth ?? this.endMonth,
       description: description ?? this.description,
     );
   }

@@ -44,8 +44,10 @@ class ExperienceCardState extends State<ExperienceCard> {
           Experience(
             company: "",
             role: "",
-            startDate: "",
-            endDate: "",
+            startYear: null,
+            startMonth: null,
+            endYear: null,
+            endMonth: null,
             description: "",
           ),
         ),
@@ -152,9 +154,41 @@ class ExperienceCardState extends State<ExperienceCard> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _buildField("Start Date", controllers.startDate)),
-            const SizedBox(width: 12),
-            Expanded(child: _buildField("End Date", controllers.endDate)),
+            Expanded(
+              child: _buildField(
+                "Start Month",
+                controllers.startMonth,
+                isNumber: true,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildField(
+                "Start Year",
+                controllers.startYear,
+                isNumber: true,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildField(
+                "End Month",
+                controllers.endMonth,
+                isNumber: true,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildField(
+                "End Year",
+                controllers.endYear,
+                isNumber: true,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -167,6 +201,7 @@ class ExperienceCardState extends State<ExperienceCard> {
     String title,
     TextEditingController controller, {
     int maxLines = 1,
+    bool isNumber = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,6 +219,7 @@ class ExperienceCardState extends State<ExperienceCard> {
           TextField(
             controller: controller,
             maxLines: maxLines,
+            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
@@ -227,23 +263,31 @@ class ExperienceCardState extends State<ExperienceCard> {
 class ExperienceEntryControllers {
   final TextEditingController company;
   final TextEditingController role;
-  final TextEditingController startDate;
-  final TextEditingController endDate;
+  final TextEditingController startYear;
+  final TextEditingController startMonth;
+  final TextEditingController endYear;
+  final TextEditingController endMonth;
   final TextEditingController description;
 
   ExperienceEntryControllers(Experience exp)
     : company = TextEditingController(text: exp.company),
       role = TextEditingController(text: exp.role),
-      startDate = TextEditingController(text: exp.startDate),
-      endDate = TextEditingController(text: exp.endDate),
+      startYear = TextEditingController(text: exp.startYear?.toString() ?? ''),
+      startMonth = TextEditingController(
+        text: exp.startMonth?.toString() ?? '',
+      ),
+      endYear = TextEditingController(text: exp.endYear?.toString() ?? ''),
+      endMonth = TextEditingController(text: exp.endMonth?.toString() ?? ''),
       description = TextEditingController(text: exp.description);
 
   Experience toExperience() {
     return Experience(
       company: company.text,
       role: role.text,
-      startDate: startDate.text,
-      endDate: endDate.text,
+      startYear: int.tryParse(startYear.text),
+      startMonth: int.tryParse(startMonth.text),
+      endYear: int.tryParse(endYear.text),
+      endMonth: int.tryParse(endMonth.text),
       description: description.text,
     );
   }
@@ -251,8 +295,10 @@ class ExperienceEntryControllers {
   void dispose() {
     company.dispose();
     role.dispose();
-    startDate.dispose();
-    endDate.dispose();
+    startYear.dispose();
+    startMonth.dispose();
+    endYear.dispose();
+    endMonth.dispose();
     description.dispose();
   }
 }

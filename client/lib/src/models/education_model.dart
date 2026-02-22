@@ -4,8 +4,10 @@ class Education {
   final String faculty;
   final String major;
   final String gpax;
-  final String startDate;
-  final String endDate;
+  final int? startYear;
+  final int? startMonth;
+  final int? endYear;
+  final int? endMonth;
 
   Education({
     required this.institution,
@@ -13,8 +15,10 @@ class Education {
     required this.faculty,
     required this.major,
     required this.gpax,
-    required this.startDate,
-    required this.endDate,
+    this.startYear,
+    this.startMonth,
+    this.endYear,
+    this.endMonth,
   });
 
   Education copyWith({
@@ -23,8 +27,10 @@ class Education {
     String? faculty,
     String? major,
     String? gpax,
-    String? startDate,
-    String? endDate,
+    int? startYear,
+    int? startMonth,
+    int? endYear,
+    int? endMonth,
   }) {
     return Education(
       institution: institution ?? this.institution,
@@ -32,8 +38,10 @@ class Education {
       faculty: faculty ?? this.faculty,
       major: major ?? this.major,
       gpax: gpax ?? this.gpax,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
+      startYear: startYear ?? this.startYear,
+      startMonth: startMonth ?? this.startMonth,
+      endYear: endYear ?? this.endYear,
+      endMonth: endMonth ?? this.endMonth,
     );
   }
 }
