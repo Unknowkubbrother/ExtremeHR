@@ -27,7 +27,7 @@ class _JobCardListState extends State<JobCardList> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const JobDetailPage(),
+                    builder: (context) => const JobDetailPage(jobId: "1"),
                   ),
                 );
               },
