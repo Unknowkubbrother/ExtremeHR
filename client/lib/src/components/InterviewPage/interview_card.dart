@@ -24,7 +24,7 @@ class InterviewCard extends StatelessWidget {
     Map<int, Widget> stateWidget = {
       0: ElevatedButton(
         onPressed: () {
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
           );
@@ -37,7 +37,7 @@ class InterviewCard extends StatelessWidget {
       ),
       1: ElevatedButton(
         onPressed: () {
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
           );
@@ -50,7 +50,7 @@ class InterviewCard extends StatelessWidget {
       ),
       2: ElevatedButton(
         onPressed: () {
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
           );
@@ -63,7 +63,7 @@ class InterviewCard extends StatelessWidget {
       ),
       3: ElevatedButton(
         onPressed: () {
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
           );

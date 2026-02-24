@@ -4,6 +4,7 @@ import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/components/MeetingPage/video_meeting.dart';
 import 'package:client/src/components/MeetingPage/chat_meeting.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
+import 'package:client/src/components/HomePage/main_navigation_page.dart';
 
 class MeetingPage extends StatefulWidget {
   const MeetingPage({super.key, required this.id});
@@ -62,7 +63,14 @@ class _MeetingPageState extends State<MeetingPage> {
               backgroundColor: AppColors.dangerousColor,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MainNavigationPage(state: 2),
+                ),
+              );
+            },
             child: Text(
               "Leave",
               style: TextStyle(
