@@ -3,6 +3,9 @@ import 'package:client/src/components/AuthPage/input_textfield.dart';
 import 'package:client/src/components/AuthPage/role_switcher.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
+import 'package:client/src/models/user_model.dart';
+import 'package:client/src/services/auth_storage.dart';
+import 'package:client/src/services/user_services.dart';
 import 'package:flutter/material.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -16,6 +19,32 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   bool isCandidate = true;
+  final usernameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final userServices = UserServices();
+  final storage = AuthStorage();
+
+  Future<void> register() async {
+    try {
+      final response = await userServices.register(
+        UserRegister(
+          username: usernameController.text.trim(),
+          email: emailController.text.trim(),
+          password: passwordController.text,
+        ),
+      );
+
+      if (!mounted) return;
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Login failed')));
+      print(e);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,14 +104,7 @@ class _SignUpPageState extends State<SignUpPage> {
         SizedBox(height: 8),
         inputTextField(hintText: "confirm password", isPassword: true),
         SizedBox(height: 32),
-        buttonMain(
-          text: "SIGN UP",
-          onPressed: () {
-            print(
-              "Sign up button pressed for ${isCandidate ? 'Candidate' : 'HR/Recruiter'}",
-            );
-          },
-        ),
+        buttonMain(text: "SIGN UP", onPressed: register),
         SizedBox(height: 32),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
