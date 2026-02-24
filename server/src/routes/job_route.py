@@ -23,7 +23,7 @@ def get_jobs(db: Session = Depends(get_db), current_user_id: int = Depends(get_c
     
     jobs_list = [
         {
-            "id": str(row.id),
+            "id": row.id,
             "title": row.title,
             "company": row.company,
             "location": row.location,

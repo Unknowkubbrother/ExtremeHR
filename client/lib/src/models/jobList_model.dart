@@ -1,5 +1,5 @@
 class JobListItem {
-  final String jobId;
+  final int jobId;
   final String title;
   final String company;
   final String location;
@@ -14,7 +14,7 @@ class JobListItem {
   });
 
   JobListItem copyWith({
-    String? jobId,
+    int? jobId,
     String? title,
     String? company,
     String? location,

@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 class JobListItemResponse(BaseModel):
-    id: str
+    id: int
     title: str
     company: str
     location: str
