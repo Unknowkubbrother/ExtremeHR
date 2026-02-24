@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:client/src/components/InterviewPage/interview_card_list.dart';
 
 class InterviewPage extends StatefulWidget {
   const InterviewPage({super.key});
@@ -10,15 +11,6 @@ class InterviewPage extends StatefulWidget {
 class _InterviewPageState extends State<InterviewPage> {
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: 10,
-      itemBuilder: (context, index) {
-        return ListTile(
-          title: Text("Interview $index"),
-          subtitle: Text("Interview $index"),
-          trailing: Icon(Icons.arrow_forward_ios),
-        );
-      },
-    );
+    return Column(children: [InterviewCardList()]);
   }
 }

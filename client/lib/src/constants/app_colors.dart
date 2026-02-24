@@ -11,4 +11,6 @@ class AppColors {
   static const Color textSecondary = Colors.black54;
   static const Color background = Colors.white;
   static const Color inputTextColor = Color.fromRGBO(117, 117, 117, 1);
+
+  static const Color dangerousColor = Colors.red;
 }
