@@ -22,19 +22,21 @@ class CardList extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+            Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, size: 24, color: AppColors.primary),
                   ),
-                  child: Icon(icon, size: 24, color: AppColors.primary),
-                ),
-                const SizedBox(width: 16),
-                child,
-              ],
+                  const SizedBox(width: 16),
+                  Expanded(child: child),
+                ],
+              ),
             ),
             Icon(Icons.navigate_next, color: AppColors.primary, size: 36),
           ],

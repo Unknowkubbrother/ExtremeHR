@@ -2,6 +2,9 @@ import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:flutter/material.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
+import 'package:client/src/services/auth_storage.dart';
+import 'package:client/src/services/job_services.dart';
+import 'package:client/src/models/jobDetail_model.dart';
 
 class JobDetailPage extends StatefulWidget {
   const JobDetailPage({super.key, required this.jobId});
@@ -13,6 +16,40 @@ class JobDetailPage extends StatefulWidget {
 }
 
 class _JobDetailPageState extends State<JobDetailPage> {
+  final storage = AuthStorage();
+  final jobServices = JobServices();
+  JobDetail? jobs;
+
+  Future<void> getJobDetail() async {
+    try {
+      final token = await storage.getToken();
+
+      final response = await jobServices.getJobDetail(
+        token!,
+        int.parse(widget.jobId),
+      );
+
+      setState(() {
+        jobs = response;
+      });
+
+      if (!mounted) return;
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load job detail1')),
+      );
+      debugPrint(e.toString());
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    getJobDetail();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -38,7 +75,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Job Title",
+                  jobs?.title ?? "",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: AppFontSizes.title,
@@ -46,7 +83,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   ),
                 ),
                 Text(
-                  "Company Name",
+                  jobs?.company ?? "",
                   style: TextStyle(
                     fontSize: AppFontSizes.body,
                     color: AppColors.textPrimary,
@@ -60,7 +97,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                       color: AppColors.textPrimary,
                     ),
                     Text(
-                      "Job Location",
+                      jobs?.location ?? "",
                       style: TextStyle(
                         fontSize: AppFontSizes.body,
                         color: AppColors.textPrimary,
@@ -87,29 +124,33 @@ class _JobDetailPageState extends State<JobDetailPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.6,
-                        child: _buildJobTag([
-                          "Tasssssssssssssssssssssssssssssg1",
-                          "Tag2",
-                          "Tag3",
-                        ]),
+                        width: double.infinity,
+                        child: _buildJobTag(
+                          jobs != null
+                              ? [
+                                  "\$${jobs!.minSalary} - \$${jobs!.maxSalary}",
+                                  "${jobs!.minAge}-${jobs!.maxAge} years old",
+                                  "${jobs!.headcount} Positions",
+                                ]
+                              : [],
+                        ),
                       ),
-                      _buildJobDescription("Job Description..."),
-                      _buildResponsibilities([
-                        "Responsibility 1",
-                        "Responsibility 2",
-                        "Responsibility 3",
-                      ]),
-                      _buildQualifications([
-                        "Qualification 1",
-                        "Qualification 2",
-                        "Qualification 3",
-                      ]),
-                      _buildSkills(["Skill 1", "Skill 2", "Skill 3"]),
-                      Text(
-                        "post on ...",
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
+                      if (jobs?.description != null &&
+                          jobs!.description.isNotEmpty)
+                        _buildJobDescription(jobs!.description),
+                      if (jobs?.responsibilities != null &&
+                          jobs!.responsibilities.isNotEmpty)
+                        _buildResponsibilities(jobs!.responsibilities),
+                      if (jobs?.qualifications != null &&
+                          jobs!.qualifications.isNotEmpty)
+                        _buildQualifications(jobs!.qualifications),
+                      if (jobs?.skills != null && jobs!.skills.isNotEmpty)
+                        _buildSkills(jobs!.skills),
+                      if (jobs?.postedAt != null)
+                        Text(
+                          "posted on ${jobs!.postedAt.toString().split(' ')[0]}",
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
                       SizedBox(height: 128),
                     ],
                   ),
@@ -207,22 +248,31 @@ class _JobDetailPageState extends State<JobDetailPage> {
       child: Column(
         children: [
           ...responsibilities.map((responsibility) {
-            return Row(
-              children: [
-                Icon(
-                  Icons.check_circle_outline_rounded,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  responsibility,
-                  style: TextStyle(
-                    fontSize: AppFontSizes.body,
-                    color: AppColors.textPrimaryTo,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      responsibility,
+                      style: TextStyle(
+                        fontSize: AppFontSizes.body,
+                        color: AppColors.textPrimaryTo,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           }),
         ],
@@ -243,22 +293,31 @@ class _JobDetailPageState extends State<JobDetailPage> {
       child: Column(
         children: [
           ...qualifications.map((qualification) {
-            return Row(
-              children: [
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  qualification,
-                  style: TextStyle(
-                    fontSize: AppFontSizes.body,
-                    color: AppColors.textPrimaryTo,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      qualification,
+                      style: TextStyle(
+                        fontSize: AppFontSizes.body,
+                        color: AppColors.textPrimaryTo,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           }),
         ],
