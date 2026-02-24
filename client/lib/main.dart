@@ -1,8 +1,10 @@
 import 'package:client/src/components/SplashPage/splash_page.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+Future<void> main() async {
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
 
