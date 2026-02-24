@@ -15,7 +15,11 @@ class MyApp extends StatelessWidget {
       title: 'ExtremeHR',
       theme: ThemeData(
         scaffoldBackgroundColor: AppColors.background,
-        appBarTheme: AppBarTheme(backgroundColor: AppColors.background),
+        appBarTheme: AppBarTheme(
+          backgroundColor: AppColors.background,
+          surfaceTintColor: Colors.transparent,
+          scrolledUnderElevation: 0,
+        ),
         bottomNavigationBarTheme: BottomNavigationBarThemeData(
           backgroundColor: Colors.white,
         ),

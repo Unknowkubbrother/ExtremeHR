@@ -3,9 +3,16 @@ import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:flutter/material.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
 
-class JobDetailPage extends StatelessWidget {
-  const JobDetailPage({super.key});
+class JobDetailPage extends StatefulWidget {
+  const JobDetailPage({super.key, required this.jobId});
 
+  final String jobId;
+
+  @override
+  State<JobDetailPage> createState() => _JobDetailPageState();
+}
+
+class _JobDetailPageState extends State<JobDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
