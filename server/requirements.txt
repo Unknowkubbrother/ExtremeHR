@@ -2,3 +2,8 @@ fastapi[standard]
 uvicorn
 python-dotenv
 sqlalchemy
+alembic
+psycopg2-binary
+bcrypt
+pyjwt
+python-multipart
