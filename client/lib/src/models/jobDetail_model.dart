@@ -66,19 +66,21 @@ class JobDetail {
 
   factory JobDetail.fromJson(Map<String, dynamic> json) {
     return JobDetail(
-      title: json['title'],
-      company: json['company'],
-      location: json['location'],
-      description: json['description'],
-      responsibilities: json['responsibilities'],
-      qualifications: json['qualifications'],
-      skills: json['skills'],
-      headcount: json['headcount'],
-      minAge: json['minAge'],
-      maxAge: json['maxAge'],
-      minSalary: json['minSalary'],
-      maxSalary: json['maxSalary'],
-      postedAt: json['postedAt'],
+      title: json['title'] ?? '',
+      company: json['company'] ?? '',
+      location: json['location'] ?? '',
+      description: json['description'] ?? '',
+      responsibilities: List<String>.from(json['responsibilities'] ?? []),
+      qualifications: List<String>.from(json['qualifications'] ?? []),
+      skills: List<String>.from(json['skills'] ?? []),
+      headcount: json['headcount'] ?? 0,
+      minAge: json['minAge'] ?? 0,
+      maxAge: json['maxAge'] ?? 0,
+      minSalary: json['minSalary'] ?? 0,
+      maxSalary: json['maxSalary'] ?? 0,
+      postedAt: json['postedAt'] != null
+          ? DateTime.parse(json['postedAt'])
+          : DateTime.now(),
     );
   }
 }

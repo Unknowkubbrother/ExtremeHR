@@ -8,7 +8,7 @@ class JobServices {
   Future<List<JobListItem>> getJobs(String token) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
     final response = await http.get(
-      Uri.parse('$apiUrl/api/jobs'),
+      Uri.parse('$apiUrl/jobs/'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -25,7 +25,7 @@ class JobServices {
   Future<JobDetail> getJobDetail(String token, int jobId) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
     final response = await http.get(
-      Uri.parse('$apiUrl/api/jobs/$jobId'),
+      Uri.parse('$apiUrl/jobs/$jobId'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
