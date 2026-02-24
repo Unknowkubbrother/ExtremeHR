@@ -25,7 +25,7 @@ class UserServices {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(user.toJson()),
     );
-    if (response.statusCode == 200) {
+    if (response.statusCode == 201) {
       return UserRegisterResponse.fromJson(jsonDecode(response.body));
     } else {
       throw Exception('Failed to register');

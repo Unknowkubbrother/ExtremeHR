@@ -20,6 +20,12 @@ class _AuthPageState extends State<AuthPage> {
     });
   }
 
+  void setToLogin() {
+    setState(() {
+      isLogin = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,7 +101,10 @@ class _AuthPageState extends State<AuthPage> {
               child: SingleChildScrollView(
                 child: isLogin
                     ? LoginPage(toggleLogin: toggleLogin)
-                    : SignUpPage(toggleLogin: toggleLogin),
+                    : SignUpPage(
+                        toggleLogin: toggleLogin,
+                        setToLogin: setToLogin,
+                      ),
               ),
             ),
           ),

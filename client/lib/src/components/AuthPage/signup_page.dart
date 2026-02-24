@@ -9,9 +9,14 @@ import 'package:client/src/services/user_services.dart';
 import 'package:flutter/material.dart';
 
 class SignUpPage extends StatefulWidget {
-  const SignUpPage({super.key, required this.toggleLogin});
+  const SignUpPage({
+    super.key,
+    required this.toggleLogin,
+    required this.setToLogin,
+  });
 
   final VoidCallback toggleLogin;
+  final VoidCallback setToLogin;
 
   @override
   State<SignUpPage> createState() => _SignUpPageState();
@@ -22,12 +27,19 @@ class _SignUpPageState extends State<SignUpPage> {
   final usernameController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
   final userServices = UserServices();
   final storage = AuthStorage();
 
   Future<void> register() async {
+    if (passwordController.text != confirmPasswordController.text) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      return;
+    }
     try {
-      final response = await userServices.register(
+      await userServices.register(
         UserRegister(
           username: usernameController.text.trim(),
           email: emailController.text.trim(),
@@ -36,13 +48,14 @@ class _SignUpPageState extends State<SignUpPage> {
       );
 
       if (!mounted) return;
+      widget.setToLogin();
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Login failed')));
-      print(e);
+      ).showSnackBar(const SnackBar(content: Text('Register failed')));
+      debugPrint(e.toString());
     }
   }
 
@@ -69,7 +82,7 @@ class _SignUpPageState extends State<SignUpPage> {
           ),
         ),
         SizedBox(height: 8),
-        inputTextField(hintText: "username"),
+        inputTextField(hintText: "username", controller: usernameController),
         SizedBox(height: 32),
         Text(
           "EMAIL",
@@ -80,7 +93,10 @@ class _SignUpPageState extends State<SignUpPage> {
           ),
         ),
         SizedBox(height: 8),
-        inputTextField(hintText: "email@example.com"),
+        inputTextField(
+          hintText: "email@example.com",
+          controller: emailController,
+        ),
         SizedBox(height: 32),
         Text(
           "PASSWORD",
@@ -91,7 +107,11 @@ class _SignUpPageState extends State<SignUpPage> {
           ),
         ),
         SizedBox(height: 8),
-        inputTextField(hintText: "password", isPassword: true),
+        inputTextField(
+          hintText: "password",
+          isPassword: true,
+          controller: passwordController,
+        ),
         SizedBox(height: 32),
         Text(
           "CONFIRM PASSWORD",
@@ -102,7 +122,11 @@ class _SignUpPageState extends State<SignUpPage> {
           ),
         ),
         SizedBox(height: 8),
-        inputTextField(hintText: "confirm password", isPassword: true),
+        inputTextField(
+          hintText: "confirm password",
+          isPassword: true,
+          controller: confirmPasswordController,
+        ),
         SizedBox(height: 32),
         buttonMain(text: "SIGN UP", onPressed: register),
         SizedBox(height: 32),
