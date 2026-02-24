@@ -1,3 +1,4 @@
+import 'package:client/src/components/AuthPage/auth_page.dart';
 import 'package:client/src/components/HomePage/card_list.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
 import 'package:client/src/constants/app_colors.dart';
@@ -62,6 +63,10 @@ class ProfilePage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 onTap: () {
                   debugPrint("Logout");
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AuthPage()),
+                  );
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(16),

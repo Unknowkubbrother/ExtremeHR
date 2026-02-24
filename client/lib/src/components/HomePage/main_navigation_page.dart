@@ -1,7 +1,9 @@
+import 'package:client/src/components/HomePage/home_job_page.dart';
 import 'package:client/src/components/ProfilePage/profile_page.dart';
 import 'package:client/src/components/ResumePage/resume_page.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:client/src/constants/app_font_sizes.dart';
 
 class MainNavigationPage extends StatefulWidget {
   const MainNavigationPage({super.key});
@@ -14,17 +16,45 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   int _selectedIndex = 0;
 
   static const List<Widget> _widgetOptions = <Widget>[
-    Text('Home Page'),
+    HomeJobPage(),
     ResumePage(),
     Text('Interview Page'),
     ProfilePage(),
   ];
 
   static const List<Widget> _widgetTitle = <Widget>[
-    Text('Dream Job awaits!'),
-    Text('Resume Extraction'),
-    Text('AI Interview'),
-    Text('Profile'),
+    Text(
+      'Dream Job awaits!',
+      style: TextStyle(
+        color: AppColors.textPrimaryTo,
+        fontSize: AppFontSizes.subtitle,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    Text(
+      'Resume Extraction',
+      style: TextStyle(
+        color: AppColors.textPrimaryTo,
+        fontSize: AppFontSizes.subtitle,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    Text(
+      'AI Interview',
+      style: TextStyle(
+        color: AppColors.textPrimaryTo,
+        fontSize: AppFontSizes.subtitle,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    Text(
+      'Profile',
+      style: TextStyle(
+        color: AppColors.textPrimaryTo,
+        fontSize: AppFontSizes.subtitle,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
   ];
 
   void _onItemTapped(int index) {
@@ -111,7 +141,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         margin: const EdgeInsets.only(bottom: 4),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.1),
+          color: AppColors.primary.withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(activeIcon, color: AppColors.primary),
