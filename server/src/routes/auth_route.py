@@ -25,7 +25,7 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     sql_insert = text("""
         INSERT INTO users (username, email, password) 
         VALUES (:username, :email, :password) 
-        RETURNING id, username, email
+        RETURNING id, username, email, role
     """)
     
     result = db.execute(sql_insert, {
@@ -37,7 +37,7 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     db.commit()
     new_user = result.first()
 
-    return {"id": new_user.id, "username": new_user.username, "email": new_user.email}
+    return {"id": new_user.id, "username": new_user.username, "email": new_user.email, "role": new_user.role}
 
 @auth_router.post("/login", response_model=TokenResponse, tags=["auth"])
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
@@ -61,10 +61,10 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 
 @auth_router.get("/me", response_model=UserResponse, tags=["auth"])
 def get_current_user_info(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
-    sql_find_user = text("SELECT id, username, email FROM users WHERE id = :id")
+    sql_find_user = text("SELECT id, username, email, role FROM users WHERE id = :id")
     user = db.execute(sql_find_user, {"id": user_id}).first()
     
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     
-    return {"id": user.id, "username": user.username, "email": user.email}
+    return {"id": user.id, "username": user.username, "email": user.email, "role": user.role}

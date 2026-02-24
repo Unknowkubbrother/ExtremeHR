@@ -15,7 +15,8 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 from src.databases.db_connect import Base, POSGRES_URL
-from src.models.authtication_model import *
+from src.models.auth_model import *
+from src.models.job_model import *
 
 config.set_main_option("sqlalchemy.url", str(POSGRES_URL).replace("'", "").replace('"', ''))
 target_metadata = Base.metadata
