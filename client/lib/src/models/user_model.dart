@@ -15,7 +15,7 @@ class UserRegister {
 }
 
 class UserRegisterResponse {
-  final String id;
+  final int id;
   final String username;
   final String email;
 
