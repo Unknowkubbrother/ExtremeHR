@@ -1,6 +1,7 @@
 import 'package:client/src/components/HomePage/home_job_page.dart';
 import 'package:client/src/components/ProfilePage/profile_page.dart';
 import 'package:client/src/components/ResumePage/resume_page.dart';
+import 'package:client/src/components/InterviewPage/interview_page.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
@@ -18,7 +19,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   static const List<Widget> _widgetOptions = <Widget>[
     HomeJobPage(),
     ResumePage(),
-    Text('Interview Page'),
+    InterviewPage(),
     ProfilePage(),
   ];
 
@@ -40,7 +41,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       ),
     ),
     Text(
-      'AI Interview',
+      'My Interview',
       style: TextStyle(
         color: AppColors.textPrimaryTo,
         fontSize: AppFontSizes.subtitle,
