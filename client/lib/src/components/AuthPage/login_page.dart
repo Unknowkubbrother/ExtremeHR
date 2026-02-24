@@ -58,7 +58,9 @@ class _LoginPageState extends State<LoginPage> {
           onPressed: () {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => MainNavigationPage()),
+              MaterialPageRoute(
+                builder: (context) => MainNavigationPage(state: 0),
+              ),
             );
           },
         ),

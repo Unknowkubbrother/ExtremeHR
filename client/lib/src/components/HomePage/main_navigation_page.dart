@@ -7,21 +7,30 @@ import 'package:flutter/material.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
 
 class MainNavigationPage extends StatefulWidget {
-  const MainNavigationPage({super.key});
+  final int? state;
+
+  const MainNavigationPage({super.key, this.state});
 
   @override
   State<MainNavigationPage> createState() => _MainNavigationPageState();
 }
 
 class _MainNavigationPageState extends State<MainNavigationPage> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    HomeJobPage(),
-    ResumePage(),
-    InterviewPage(),
-    ProfilePage(),
-  ];
+  late List<Widget> _widgetOptions;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.state ?? 0;
+    _widgetOptions = <Widget>[
+      HomeJobPage(),
+      ResumePage(),
+      InterviewPage(),
+      ProfilePage(),
+    ];
+  }
 
   static const List<Widget> _widgetTitle = <Widget>[
     Text(
