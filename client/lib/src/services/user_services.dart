@@ -7,7 +7,7 @@ class UserServices {
   Future<UserLoginResponse> login(UserLogin user) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
     final response = await http.post(
-      Uri.parse('$apiUrl/api/auth/login'),
+      Uri.parse('$apiUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(user.toJson()),
     );
@@ -21,7 +21,7 @@ class UserServices {
   Future<UserRegisterResponse> register(UserRegister user) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
     final response = await http.post(
-      Uri.parse('$apiUrl/api/auth/register'),
+      Uri.parse('$apiUrl/auth/register'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(user.toJson()),
     );
@@ -35,7 +35,7 @@ class UserServices {
   Future<UserModel> me(String token) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
     final response = await http.get(
-      Uri.parse('$apiUrl/api/auth/me'),
+      Uri.parse('$apiUrl/auth/me'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
