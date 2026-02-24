@@ -63,4 +63,22 @@ class JobDetail {
       postedAt: postedAt ?? this.postedAt,
     );
   }
+
+  factory JobDetail.fromJson(Map<String, dynamic> json) {
+    return JobDetail(
+      title: json['title'],
+      company: json['company'],
+      location: json['location'],
+      description: json['description'],
+      responsibilities: json['responsibilities'],
+      qualifications: json['qualifications'],
+      skills: json['skills'],
+      headcount: json['headcount'],
+      minAge: json['minAge'],
+      maxAge: json['maxAge'],
+      minSalary: json['minSalary'],
+      maxSalary: json['maxSalary'],
+      postedAt: json['postedAt'],
+    );
+  }
 }

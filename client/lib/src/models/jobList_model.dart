@@ -28,4 +28,14 @@ class JobListItem {
       salary: salary ?? this.salary,
     );
   }
+
+  factory JobListItem.fromJson(Map<String, dynamic> json) {
+    return JobListItem(
+      jobId: json['id'],
+      title: json['title'],
+      company: json['company'],
+      location: json['location'],
+      salary: json['salary'],
+    );
+  }
 }
