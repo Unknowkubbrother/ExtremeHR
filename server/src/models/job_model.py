@@ -17,6 +17,8 @@ class Job(Base):
     title = Column(String(255), nullable=False)
     company = Column(String(255), nullable=False)
     location = Column(String(255), nullable=False)
+
+    job_fields = Column(ARRAY(String), nullable=False, server_default='{}')
     
     description = Column(Text, nullable=False)
     responsibilities = Column(ARRAY(String), nullable=False, server_default='{}')
