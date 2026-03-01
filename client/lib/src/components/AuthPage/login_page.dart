@@ -23,6 +23,7 @@ class _LoginPageState extends State<LoginPage> {
   final passwordController = TextEditingController();
   final userServices = UserServices();
   final storage = AuthStorage();
+  String error_msg = "";
 
   Future<void> login() async {
     try {
@@ -44,10 +45,9 @@ class _LoginPageState extends State<LoginPage> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Login failed')));
-      print(e);
+      setState(() {
+        error_msg = 'Login failed';
+      });
     }
   }
 
@@ -94,9 +94,28 @@ class _LoginPageState extends State<LoginPage> {
           controller: passwordController,
         ),
         SizedBox(height: 32),
-        buttonMain(text: "LOGIN", onPressed: login),
+        buttonMain(
+          text: isCandidate ? "LOGIN AS CANDIDATE" : "LOGIN AS HR",
+          onPressed: login,
+        ),
+        if (error_msg.isNotEmpty)
+          Center(
+            child: Column(
+              children: [
+                SizedBox(height: 8),
+                Text(
+                  error_msg,
+                  style: TextStyle(
+                    color: AppColors.dangerousColor,
+                    fontSize: AppFontSizes.small,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-        SizedBox(height: 32),
+        SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           spacing: 2,

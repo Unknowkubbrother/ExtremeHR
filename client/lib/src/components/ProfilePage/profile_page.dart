@@ -3,6 +3,7 @@ import 'package:client/src/components/HomePage/card_list.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
+import 'package:client/src/services/auth_storage.dart';
 import 'package:flutter/material.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -61,7 +62,8 @@ class ProfilePage extends StatelessWidget {
               child: InkWell(
                 splashColor: Colors.red.shade700,
                 borderRadius: BorderRadius.circular(12),
-                onTap: () {
+                onTap: () async {
+                  await AuthStorage().clear();
                   debugPrint("Logout");
                   Navigator.pushReplacement(
                     context,

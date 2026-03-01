@@ -1,5 +1,8 @@
 import 'package:client/src/components/AuthPage/auth_page.dart';
+import 'package:client/src/components/HomePage/main_navigation_page.dart';
 import 'package:client/src/constants/app_colors.dart';
+import 'package:client/src/services/auth_storage.dart';
+import 'package:client/src/services/user_services.dart';
 import 'package:flutter/material.dart';
 
 class SplashPage extends StatefulWidget {
@@ -10,16 +13,37 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
+  AuthStorage authStorage = AuthStorage();
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AuthPage()),
-        );
-      }
-    });
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    await Future.delayed(const Duration(seconds: 2));
+
+    final token = await authStorage.getToken();
+
+    if (token == null) {
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const AuthPage()));
+    }
+    try {
+      await UserServices().me(token!);
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavigationPage(state: 0)),
+      );
+    } catch (e) {
+      debugPrint(e.toString());
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const AuthPage()));
+    }
   }
 
   @override

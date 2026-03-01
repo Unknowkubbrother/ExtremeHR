@@ -30,12 +30,13 @@ class _SignUpPageState extends State<SignUpPage> {
   final confirmPasswordController = TextEditingController();
   final userServices = UserServices();
   final storage = AuthStorage();
+  String error_msg = "";
 
   Future<void> register() async {
     if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      setState(() {
+        error_msg = 'Passwords do not match';
+      });
       return;
     }
     try {
@@ -52,10 +53,10 @@ class _SignUpPageState extends State<SignUpPage> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Register failed')));
       debugPrint(e.toString());
+      setState(() {
+        error_msg = 'Register failed';
+      });
     }
   }
 
@@ -129,7 +130,23 @@ class _SignUpPageState extends State<SignUpPage> {
         ),
         SizedBox(height: 32),
         buttonMain(text: "SIGN UP", onPressed: register),
-        SizedBox(height: 32),
+        if (error_msg.isNotEmpty)
+          Center(
+            child: Column(
+              children: [
+                SizedBox(height: 8),
+                Text(
+                  error_msg,
+                  style: TextStyle(
+                    color: AppColors.dangerousColor,
+                    fontSize: AppFontSizes.small,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           spacing: 2,

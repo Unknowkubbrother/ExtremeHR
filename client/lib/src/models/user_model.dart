@@ -60,7 +60,7 @@ class UserLoginResponse {
 }
 
 class UserModel {
-  final String id;
+  final int id;
   final String username;
   final String email;
 
