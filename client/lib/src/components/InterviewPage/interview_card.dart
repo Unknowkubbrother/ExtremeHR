@@ -1,6 +1,8 @@
 import 'package:client/src/components/ResumePage/card_content.dart';
+import 'package:client/src/components/SummaryPage/summary_page.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/components/MeetingPage/meeting_page.dart';
+import 'package:client/src/models/status_enum.dart';
 import 'package:flutter/material.dart';
 
 class InterviewCard extends StatelessWidget {
@@ -13,7 +15,7 @@ class InterviewCard extends StatelessWidget {
     required this.id,
   });
 
-  final int state;
+  final Status state;
   final String id;
   final IconData icon;
   final Widget child;
@@ -21,8 +23,8 @@ class InterviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Map<int, Widget> stateWidget = {
-      0: ElevatedButton(
+    Map<Status, Widget> stateWidget = {
+      Status.waiting: ElevatedButton(
         onPressed: () {
           Navigator.pushReplacement(
             context,
@@ -35,9 +37,9 @@ class InterviewCard extends StatelessWidget {
         ),
         child: Text("Waiting", style: TextStyle(color: Colors.black)),
       ),
-      1: ElevatedButton(
+      Status.join: ElevatedButton(
         onPressed: () {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
           );
@@ -48,12 +50,12 @@ class InterviewCard extends StatelessWidget {
         ),
         child: Text("Join Meeting", style: TextStyle(color: Colors.white)),
       ),
-      2: ElevatedButton(
+      Status.reject: ElevatedButton(
         onPressed: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
-          );
+          // Navigator.pushReplacement(
+          //   context,
+          //   MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
+          // );
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color.fromARGB(255, 252, 208, 208),
@@ -61,11 +63,11 @@ class InterviewCard extends StatelessWidget {
         ),
         child: Text("Reject", style: TextStyle(color: Colors.red)),
       ),
-      3: ElevatedButton(
+      Status.view: ElevatedButton(
         onPressed: () {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
+            MaterialPageRoute(builder: (context) => SummaryPage()),
           );
         },
         style: ElevatedButton.styleFrom(

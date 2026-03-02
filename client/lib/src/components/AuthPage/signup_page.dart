@@ -45,6 +45,7 @@ class _SignUpPageState extends State<SignUpPage> {
           username: usernameController.text.trim(),
           email: emailController.text.trim(),
           password: passwordController.text,
+          role: isCandidate ? "candidate" : "hr",
         ),
       );
 

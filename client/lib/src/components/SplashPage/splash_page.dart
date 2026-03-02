@@ -1,4 +1,5 @@
 import 'package:client/src/components/AuthPage/auth_page.dart';
+import 'package:client/src/components/HR/HomeHRPage/main_navigation_page.dart';
 import 'package:client/src/components/HomePage/main_navigation_page.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/services/auth_storage.dart';
@@ -32,12 +33,20 @@ class _SplashPageState extends State<SplashPage> {
       ).pushReplacement(MaterialPageRoute(builder: (_) => const AuthPage()));
     }
     try {
-      await UserServices().me(token!);
+      final user = await UserServices().me(token!);
       if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainNavigationPage(state: 0)),
-      );
+      if (user.role == "candidate") {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainNavigationPage(state: 0)),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const MainNavigationHRPage(state: 0),
+          ),
+        );
+      }
     } catch (e) {
       debugPrint(e.toString());
       Navigator.of(

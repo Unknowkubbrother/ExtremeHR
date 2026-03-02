@@ -6,10 +6,12 @@ class UserRegister(BaseModel):
     username: str
     email: EmailStr
     password: str
+    role: str = "candidate"
 
 class UserLogin(BaseModel):
     username: str
     password: str
+    role: str = "candidate"
 
 class TokenResponse(BaseModel):
     access_token: str

@@ -13,4 +13,5 @@ class AppColors {
   static const Color inputTextColor = Color.fromRGBO(117, 117, 117, 1);
 
   static const Color dangerousColor = Colors.red;
+  static const Color positiveColor = Color.fromARGB(255, 102, 187, 106);
 }

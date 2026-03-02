@@ -23,15 +23,16 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     hashed_pwd = get_password_hash(user_data.password)
 
     sql_insert = text("""
-        INSERT INTO users (username, email, password) 
-        VALUES (:username, :email, :password) 
+        INSERT INTO users (username, email, password, role) 
+        VALUES (:username, :email, :password, :role) 
         RETURNING id, username, email, role
     """)
     
     result = db.execute(sql_insert, {
         "username": user_data.username, 
         "email": user_data.email, 
-        "password": hashed_pwd
+        "password": hashed_pwd,
+        "role": user_data.role
     })
     
     db.commit()
@@ -44,10 +45,10 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
     sql_find_user = text("""
         SELECT id, password 
         FROM users 
-        WHERE username = :identifier OR email = :identifier
+        WHERE (username = :identifier OR email = :identifier) AND role = :role
     """)
     
-    user = db.execute(sql_find_user, {"identifier": user_data.username}).first()
+    user = db.execute(sql_find_user, {"identifier": user_data.username, "role": user_data.role}).first()
 
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials")

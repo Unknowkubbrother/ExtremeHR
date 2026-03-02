@@ -1,6 +1,7 @@
 import 'package:client/src/components/AuthPage/button_main.dart';
 import 'package:client/src/components/AuthPage/input_textfield.dart';
 import 'package:client/src/components/AuthPage/role_switcher.dart';
+import 'package:client/src/components/HR/HomeHRPage/main_navigation_page.dart';
 import 'package:client/src/components/HomePage/main_navigation_page.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
@@ -31,17 +32,26 @@ class _LoginPageState extends State<LoginPage> {
         UserLogin(
           username: emailController.text.trim(),
           password: passwordController.text,
+          role: isCandidate ? "candidate" : "hr",
         ),
       );
 
       await storage.saveToken(response.token);
 
       if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => MainNavigationPage(state: 0)),
-      );
+      if (isCandidate) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => MainNavigationPage(state: 0)),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MainNavigationHRPage(state: 0),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
 
