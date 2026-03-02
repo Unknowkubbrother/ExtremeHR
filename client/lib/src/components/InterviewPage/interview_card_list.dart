@@ -1,6 +1,7 @@
 import 'package:client/src/components/InterviewPage/interview_card.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/models/interview_model.dart';
+import 'package:client/src/models/status_enum.dart';
 import 'package:flutter/material.dart';
 
 class InterviewCardList extends StatefulWidget {
@@ -14,31 +15,31 @@ class _InterviewCardListState extends State<InterviewCardList> {
   List<InverViewCardModel> interviewCardList = [
     InverViewCardModel(
       id: "1",
-      state: 0,
+      state: Status.waiting,
       title: "UX Designer",
       company: "Google",
     ),
     InverViewCardModel(
       id: "2",
-      state: 1,
+      state: Status.join,
       title: "Software Engineer",
       company: "Microsoft",
     ),
     InverViewCardModel(
       id: "3",
-      state: 2,
+      state: Status.reject,
       title: "Data Scientist",
       company: "Meta",
     ),
     InverViewCardModel(
       id: "4",
-      state: 3,
+      state: Status.view,
       title: "Product Manager",
       company: "Apple",
     ),
     InverViewCardModel(
       id: "5",
-      state: 3,
+      state: Status.view,
       title: "Project Manager",
       company: "Amazon",
     ),

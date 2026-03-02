@@ -2,15 +2,22 @@ class UserRegister {
   final String username;
   final String email;
   final String password;
+  final String role;
 
   UserRegister({
     required this.username,
     required this.email,
     required this.password,
+    required this.role,
   });
 
   Map<String, dynamic> toJson() {
-    return {'username': username, 'email': email, 'password': password};
+    return {
+      'username': username,
+      'email': email,
+      'password': password,
+      'role': role,
+    };
   }
 }
 
@@ -37,11 +44,16 @@ class UserRegisterResponse {
 class UserLogin {
   final String username;
   final String password;
+  final String role;
 
-  UserLogin({required this.username, required this.password});
+  UserLogin({
+    required this.username,
+    required this.password,
+    required this.role,
+  });
 
   Map<String, dynamic> toJson() {
-    return {'username': username, 'password': password};
+    return {'username': username, 'password': password, 'role': role};
   }
 }
 
@@ -60,21 +72,28 @@ class UserLoginResponse {
 }
 
 class UserModel {
-  final String id;
+  final int id;
   final String username;
   final String email;
+  final String role;
 
-  UserModel({required this.id, required this.username, required this.email});
+  UserModel({
+    required this.id,
+    required this.username,
+    required this.email,
+    required this.role,
+  });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'],
       username: json['username'],
       email: json['email'],
+      role: json['role'],
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'username': username, 'email': email};
+    return {'id': id, 'username': username, 'email': email, 'role': role};
   }
 }

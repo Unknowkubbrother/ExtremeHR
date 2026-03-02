@@ -1,6 +1,7 @@
 import 'package:client/src/components/AuthPage/button_main.dart';
 import 'package:client/src/components/AuthPage/input_textfield.dart';
 import 'package:client/src/components/AuthPage/role_switcher.dart';
+import 'package:client/src/components/HR/HomeHRPage/main_navigation_page.dart';
 import 'package:client/src/components/HomePage/main_navigation_page.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
@@ -23,6 +24,7 @@ class _LoginPageState extends State<LoginPage> {
   final passwordController = TextEditingController();
   final userServices = UserServices();
   final storage = AuthStorage();
+  String error_msg = "";
 
   Future<void> login() async {
     try {
@@ -30,24 +32,32 @@ class _LoginPageState extends State<LoginPage> {
         UserLogin(
           username: emailController.text.trim(),
           password: passwordController.text,
+          role: isCandidate ? "candidate" : "hr",
         ),
       );
 
       await storage.saveToken(response.token);
 
       if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => MainNavigationPage(state: 0)),
-      );
+      if (isCandidate) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => MainNavigationPage(state: 0)),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MainNavigationHRPage(state: 0),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Login failed')));
-      print(e);
+      setState(() {
+        error_msg = 'Login failed';
+      });
     }
   }
 
@@ -94,9 +104,28 @@ class _LoginPageState extends State<LoginPage> {
           controller: passwordController,
         ),
         SizedBox(height: 32),
-        buttonMain(text: "LOGIN", onPressed: login),
+        buttonMain(
+          text: isCandidate ? "LOGIN AS CANDIDATE" : "LOGIN AS HR",
+          onPressed: login,
+        ),
+        if (error_msg.isNotEmpty)
+          Center(
+            child: Column(
+              children: [
+                SizedBox(height: 8),
+                Text(
+                  error_msg,
+                  style: TextStyle(
+                    color: AppColors.dangerousColor,
+                    fontSize: AppFontSizes.small,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-        SizedBox(height: 32),
+        SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           spacing: 2,

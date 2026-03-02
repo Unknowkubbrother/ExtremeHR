@@ -1,6 +1,8 @@
+import 'package:client/src/models/status_enum.dart';
+
 class InverViewCardModel {
   final String id;
-  final int state;
+  final Status state;
   final String title;
   final String company;
 
@@ -13,7 +15,7 @@ class InverViewCardModel {
 
   InverViewCardModel copyWith({
     String? id,
-    int? state,
+    Status? state,
     String? title,
     String? company,
   }) {
