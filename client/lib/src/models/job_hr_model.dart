@@ -3,12 +3,14 @@ class JobHR {
   final String title;
   final String company;
   final int candidateCount;
+  final DateTime postedAt;
 
   JobHR({
     required this.id,
     required this.title,
     required this.company,
     required this.candidateCount,
+    required this.postedAt,
   });
 
   factory JobHR.fromJson(Map<String, dynamic> json) {
@@ -17,6 +19,7 @@ class JobHR {
       title: json['title'],
       company: json['company'],
       candidateCount: json['candidate_count'] ?? 0,
+      postedAt: DateTime.parse(json['postedAt']),
     );
   }
 
