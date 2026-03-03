@@ -1,6 +1,6 @@
 import 'package:client/src/components/HR/HomeHRPage/hr_home_page.dart';
+import 'package:client/src/components/HR/JobPage/jobs_page.dart';
 import 'package:client/src/components/ProfilePage/profile_page.dart';
-import 'package:client/src/components/ResumePage/resume_page.dart';
 import 'package:client/src/components/InterviewPage/interview_page.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +26,7 @@ class _MainNavigationHRPageState extends State<MainNavigationHRPage> {
     _selectedIndex = widget.state ?? 0;
     _widgetOptions = <Widget>[
       HRHomePage(),
-      ResumePage(),
+      JobsHRPage(),
       InterviewPage(),
       ProfilePage(),
     ];

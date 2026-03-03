@@ -47,4 +47,32 @@ class UserServices {
       throw Exception('Failed to get user');
     }
   }
+
+  Future<UserModel> updateProfile(
+    String token,
+    String username,
+    String email, {
+    String? password,
+  }) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final Map<String, dynamic> body = {'username': username, 'email': email};
+    if (password != null && password.isNotEmpty) {
+      body['password'] = password;
+    }
+
+    final response = await http.post(
+      Uri.parse('$apiUrl/auth/me'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
+    );
+    if (response.statusCode == 200) {
+      return UserModel.fromJson(jsonDecode(response.body));
+    } else {
+      final body = jsonDecode(response.body);
+      throw Exception(body['detail'] ?? 'Failed to update profile');
+    }
+  }
 }

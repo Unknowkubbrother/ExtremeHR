@@ -5,9 +5,11 @@ from sqlalchemy import (
     Integer,
     DateTime,
     Text,
-    func
+    func,
+    ForeignKey
 )
 from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.orm import relationship
 from src.databases.db_connect import Base
 
 class Job(Base):
@@ -15,8 +17,6 @@ class Job(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     title = Column(String(255), nullable=False)
-    company = Column(String(255), nullable=False)
-    location = Column(String(255), nullable=False)
 
     job_fields = Column(ARRAY(String), nullable=False, server_default='{}')
     
@@ -33,3 +33,6 @@ class Job(Base):
 
     postedAt = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    user = relationship("User", back_populates="jobs")

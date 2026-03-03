@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:client/src/models/jobModify_model.dart';
+import 'package:client/src/models/job_hr_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:client/src/models/jobList_model.dart';
 import 'package:client/src/models/jobDetail_model.dart';
@@ -35,6 +37,73 @@ class JobServices {
       return JobDetail.fromJson(jsonDecode(response.body));
     } else {
       throw Exception('Failed to get job detail');
+    }
+  }
+
+  Future<JobDetail> createJob(String token, JobCreate job) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.post(
+      Uri.parse('$apiUrl/jobs/create'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(job.toJson()),
+    );
+    if (response.statusCode == 201) {
+      return JobDetail.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to create job');
+    }
+  }
+
+  Future<JobDetail> updateJob(String token, JobUpdate job) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.post(
+      Uri.parse('$apiUrl/jobs/update'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(job.toJson()),
+    );
+    if (response.statusCode == 200) {
+      return JobDetail.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to update job');
+    }
+  }
+
+  Future<List<JobHR>> getJobsByHR(String token) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.get(
+      Uri.parse('$apiUrl/jobs_hr/hr'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonList = jsonDecode(response.body);
+      return jsonList.map((json) => JobHR.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to get HR jobs');
+    }
+  }
+
+  Future<Map<String, dynamic>> getHRStats(String token) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.get(
+      Uri.parse('$apiUrl/jobs_hr/hr/stats'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get HR stats');
     }
   }
 }

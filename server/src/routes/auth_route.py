@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from src.databases.db_connect import get_db
-from src.schemas.auth_schema import UserRegister, UserLogin, TokenResponse, UserResponse
+from src.schemas.auth_schema import UserRegister, UserLogin, TokenResponse, UserResponse, UserUpdate
 from src.utils.auth_utils import get_password_hash, verify_password, create_access_token, get_current_user_id
 
 auth_router = APIRouter()
@@ -69,3 +69,29 @@ def get_current_user_info(user_id: int = Depends(get_current_user_id), db: Sessi
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     
     return {"id": user.id, "username": user.username, "email": user.email, "role": user.role}
+
+@auth_router.post("/me", response_model=UserResponse, tags=["auth"])
+def update_current_user_info(data: UserUpdate, user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    # Check if username or email already exists for other users
+    sql_check = text("""
+        SELECT id FROM users 
+        WHERE (username = :username OR email = :email) AND id != :id
+    """)
+    existing = db.execute(sql_check, {"username": data.username, "email": data.email, "id": user_id}).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username or email already taken")
+
+    sql_update_query = "UPDATE users SET username = :username, email = :email"
+    params = {"username": data.username, "email": data.email, "id": user_id}
+
+    if data.password:
+        sql_update_query += ", password = :password"
+        params["password"] = get_password_hash(data.password)
+
+    sql_update_query += " WHERE id = :id RETURNING id, username, email, role"
+    
+    result = db.execute(text(sql_update_query), params)
+    db.commit()
+    
+    updated_user = result.first()
+    return {"id": updated_user.id, "username": updated_user.username, "email": updated_user.email, "role": updated_user.role}

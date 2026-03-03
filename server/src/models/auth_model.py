@@ -5,7 +5,8 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     func,
-    text
+    text,
+    ForeignKey
 )
 from sqlalchemy.orm import relationship
 from src.databases.db_connect import Base
@@ -23,3 +24,17 @@ class User(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    jobs = relationship("Job", back_populates="user")
+    resume = relationship("Resume", back_populates="user", uselist=False)
+    company = relationship("Company", back_populates="user", uselist=False)
+
+class Company(Base):
+    __tablename__ = "companies"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    location = Column(String(255), nullable=False)
+
+    user_id = Column(BigInteger, ForeignKey("users.id"), unique=True, nullable=False)
+    user = relationship("User", back_populates="company")

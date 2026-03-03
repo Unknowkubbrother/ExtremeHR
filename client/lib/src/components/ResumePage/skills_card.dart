@@ -22,6 +22,10 @@ class SkillsCardState extends State<SkillsCard> {
     _initControllers();
   }
 
+  void resetData() {
+    _initControllers();
+  }
+
   void _initControllers() {
     _controllers = widget.skills
         .map((skill) => TextEditingController(text: skill))
