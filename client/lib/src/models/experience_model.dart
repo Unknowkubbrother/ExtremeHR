@@ -1,20 +1,20 @@
 class Experience {
   final String company;
-  final String role;
+  final String? role;
   final int? startYear;
   final int? startMonth;
   final int? endYear;
   final int? endMonth;
-  final String description;
+  final String? description;
 
   Experience({
     required this.company,
-    required this.role,
+    this.role,
     this.startYear,
     this.startMonth,
     this.endYear,
     this.endMonth,
-    required this.description,
+    this.description,
   });
 
   Experience copyWith({
@@ -34,6 +34,30 @@ class Experience {
       endYear: endYear ?? this.endYear,
       endMonth: endMonth ?? this.endMonth,
       description: description ?? this.description,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'company': company,
+      'role': role,
+      'start_year': startYear,
+      'start_month': startMonth,
+      'end_year': endYear,
+      'end_month': endMonth,
+      'description': description,
+    };
+  }
+
+  factory Experience.fromJson(Map<String, dynamic> json) {
+    return Experience(
+      company: json['company'] ?? '',
+      role: json['role'],
+      startYear: json['start_year'],
+      startMonth: json['start_month'],
+      endYear: json['end_year'],
+      endMonth: json['end_month'],
+      description: json['description'],
     );
   }
 }

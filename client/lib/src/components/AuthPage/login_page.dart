@@ -1,4 +1,4 @@
-import 'package:client/src/components/AuthPage/button_main.dart';
+import 'package:client/src/components/shared/main_button.dart';
 import 'package:client/src/components/AuthPage/input_textfield.dart';
 import 'package:client/src/components/AuthPage/role_switcher.dart';
 import 'package:client/src/components/HR/HomeHRPage/main_navigation_page.dart';
@@ -25,8 +25,10 @@ class _LoginPageState extends State<LoginPage> {
   final userServices = UserServices();
   final storage = AuthStorage();
   String error_msg = "";
+  bool _isLoading = false;
 
   Future<void> login() async {
+    setState(() => _isLoading = true);
     try {
       final response = await userServices.login(
         UserLogin(
@@ -58,6 +60,8 @@ class _LoginPageState extends State<LoginPage> {
       setState(() {
         error_msg = 'Login failed';
       });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -104,9 +108,10 @@ class _LoginPageState extends State<LoginPage> {
           controller: passwordController,
         ),
         SizedBox(height: 32),
-        buttonMain(
+        MainButton(
           text: isCandidate ? "LOGIN AS CANDIDATE" : "LOGIN AS HR",
           onPressed: login,
+          isLoading: _isLoading,
         ),
         if (error_msg.isNotEmpty)
           Center(

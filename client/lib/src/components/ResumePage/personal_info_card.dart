@@ -3,6 +3,7 @@ import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
 import 'package:client/src/models/personal_info_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class PersonalInfoCard extends StatefulWidget {
   final PersonalInformation data;
@@ -31,21 +32,27 @@ class PersonalInfoCardState extends State<PersonalInfoCard> {
     _initControllers();
   }
 
+  void resetData() {
+    _initControllers();
+  }
+
   void _initControllers() {
     _fullNameController = TextEditingController(text: widget.data.fullName);
-    _ageController = TextEditingController(text: widget.data.age);
-    _phoneController = TextEditingController(text: widget.data.phone);
-    _emailController = TextEditingController(text: widget.data.email);
-    _addressController = TextEditingController(text: widget.data.address);
+    _ageController = TextEditingController(
+      text: widget.data.age?.toString() ?? '',
+    );
+    _phoneController = TextEditingController(text: widget.data.phone ?? '');
+    _emailController = TextEditingController(text: widget.data.email ?? '');
+    _addressController = TextEditingController(text: widget.data.address ?? '');
   }
 
   PersonalInformation getUpdatedData() {
     return widget.data.copyWith(
       fullName: _fullNameController.text,
-      age: _ageController.text,
-      phone: _phoneController.text,
-      email: _emailController.text,
-      address: _addressController.text,
+      age: int.tryParse(_ageController.text),
+      phone: _phoneController.text.isEmpty ? null : _phoneController.text,
+      email: _emailController.text.isEmpty ? null : _emailController.text,
+      address: _addressController.text.isEmpty ? null : _addressController.text,
     );
   }
 
@@ -81,9 +88,9 @@ class PersonalInfoCardState extends State<PersonalInfoCard> {
         children: [
           _buildField("Full Name", _fullNameController),
           const SizedBox(height: 12),
-          _buildField("Age", _ageController),
+          _buildField("Age", _ageController, isNumber: true),
           const SizedBox(height: 12),
-          _buildField("Phone", _phoneController),
+          _buildField("Phone", _phoneController, isNumber: true),
           const SizedBox(height: 12),
           _buildField("Email", _emailController),
           const SizedBox(height: 12),
@@ -93,7 +100,11 @@ class PersonalInfoCardState extends State<PersonalInfoCard> {
     );
   }
 
-  Widget _buildField(String title, TextEditingController controller) {
+  Widget _buildField(
+    String title,
+    TextEditingController controller, {
+    bool isNumber = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -109,6 +120,10 @@ class PersonalInfoCardState extends State<PersonalInfoCard> {
         if (widget.isEditing)
           TextField(
             controller: controller,
+            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+            inputFormatters: isNumber
+                ? [FilteringTextInputFormatter.digitsOnly]
+                : null,
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
@@ -137,7 +152,7 @@ class PersonalInfoCardState extends State<PersonalInfoCard> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              controller.text,
+              controller.text.isEmpty ? "-" : controller.text,
               style: TextStyle(
                 fontSize: AppFontSizes.body,
                 color: Colors.black87,

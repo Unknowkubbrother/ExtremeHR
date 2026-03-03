@@ -1,4 +1,4 @@
-import 'package:client/src/components/AuthPage/button_main.dart';
+import 'package:client/src/components/shared/main_button.dart';
 import 'package:client/src/components/AuthPage/input_textfield.dart';
 import 'package:client/src/components/AuthPage/role_switcher.dart';
 import 'package:client/src/constants/app_colors.dart';
@@ -31,6 +31,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final userServices = UserServices();
   final storage = AuthStorage();
   String error_msg = "";
+  bool _isLoading = false;
 
   Future<void> register() async {
     if (passwordController.text != confirmPasswordController.text) {
@@ -39,6 +40,7 @@ class _SignUpPageState extends State<SignUpPage> {
       });
       return;
     }
+    setState(() => _isLoading = true);
     try {
       await userServices.register(
         UserRegister(
@@ -58,6 +60,8 @@ class _SignUpPageState extends State<SignUpPage> {
       setState(() {
         error_msg = 'Register failed';
       });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -130,7 +134,7 @@ class _SignUpPageState extends State<SignUpPage> {
           controller: confirmPasswordController,
         ),
         SizedBox(height: 32),
-        buttonMain(text: "SIGN UP", onPressed: register),
+        MainButton(text: "SIGN UP", onPressed: register, isLoading: _isLoading),
         if (error_msg.isNotEmpty)
           Center(
             child: Column(

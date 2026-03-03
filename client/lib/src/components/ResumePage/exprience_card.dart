@@ -27,6 +27,10 @@ class ExperienceCardState extends State<ExperienceCard> {
     _initControllers();
   }
 
+  void resetData() {
+    _initControllers();
+  }
+
   void _initControllers() {
     _controllers.clear();
     for (var exp in widget.experience) {
@@ -43,12 +47,12 @@ class ExperienceCardState extends State<ExperienceCard> {
         ExperienceEntryControllers(
           Experience(
             company: "",
-            role: "",
+            role: null,
             startYear: null,
             startMonth: null,
             endYear: null,
             endMonth: null,
-            description: "",
+            description: null,
           ),
         ),
       );
@@ -149,6 +153,8 @@ class ExperienceCardState extends State<ExperienceCard> {
               ),
           ],
         ),
+        const SizedBox(height: 12),
+        _buildField("Company", controllers.company),
         const SizedBox(height: 12),
         _buildField("Role", controllers.role),
         const SizedBox(height: 12),
@@ -271,24 +277,24 @@ class ExperienceEntryControllers {
 
   ExperienceEntryControllers(Experience exp)
     : company = TextEditingController(text: exp.company),
-      role = TextEditingController(text: exp.role),
+      role = TextEditingController(text: exp.role ?? ''),
       startYear = TextEditingController(text: exp.startYear?.toString() ?? ''),
       startMonth = TextEditingController(
         text: exp.startMonth?.toString() ?? '',
       ),
       endYear = TextEditingController(text: exp.endYear?.toString() ?? ''),
       endMonth = TextEditingController(text: exp.endMonth?.toString() ?? ''),
-      description = TextEditingController(text: exp.description);
+      description = TextEditingController(text: exp.description ?? '');
 
   Experience toExperience() {
     return Experience(
       company: company.text,
-      role: role.text,
+      role: role.text.isEmpty ? null : role.text,
       startYear: int.tryParse(startYear.text),
       startMonth: int.tryParse(startMonth.text),
       endYear: int.tryParse(endYear.text),
       endMonth: int.tryParse(endMonth.text),
-      description: description.text,
+      description: description.text.isEmpty ? null : description.text,
     );
   }
 

@@ -24,6 +24,7 @@ class _JobCardListState extends State<JobCardList> {
 
       final response = await jobServices.getJobs(token!);
 
+      if (!mounted) return;
       setState(() {
         jobs = response;
       });

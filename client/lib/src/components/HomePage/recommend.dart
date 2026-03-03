@@ -31,7 +31,7 @@ class _RecommendState extends State<Recommend> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Job 10 Position",
+                        "ExtremeHR",
                         style: TextStyle(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
@@ -39,7 +39,7 @@ class _RecommendState extends State<Recommend> {
                         ),
                       ),
                       Text(
-                        "Company Name",
+                        "Today News",
                         style: TextStyle(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,

@@ -1,5 +1,6 @@
 class JobDetail {
   final String title;
+  final List<String> jobFields;
   final String company;
   final String location;
 
@@ -18,6 +19,7 @@ class JobDetail {
 
   JobDetail({
     required this.title,
+    required this.jobFields,
     required this.company,
     required this.location,
     required this.description,
@@ -34,6 +36,7 @@ class JobDetail {
 
   JobDetail copyWith({
     String? title,
+    List<String>? jobFields,
     String? company,
     String? location,
     String? description,
@@ -49,6 +52,7 @@ class JobDetail {
   }) {
     return JobDetail(
       title: title ?? this.title,
+      jobFields: jobFields ?? this.jobFields,
       company: company ?? this.company,
       location: location ?? this.location,
       description: description ?? this.description,
@@ -67,6 +71,7 @@ class JobDetail {
   factory JobDetail.fromJson(Map<String, dynamic> json) {
     return JobDetail(
       title: json['title'] ?? '',
+      jobFields: List<String>.from(json['job_fields'] ?? []),
       company: json['company'] ?? '',
       location: json['location'] ?? '',
       description: json['description'] ?? '',

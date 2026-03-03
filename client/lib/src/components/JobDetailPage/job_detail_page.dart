@@ -29,6 +29,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
         int.parse(widget.jobId),
       );
 
+      if (!mounted) return;
       setState(() {
         jobs = response;
       });
@@ -131,6 +132,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
                                   "\$${jobs!.minSalary} - \$${jobs!.maxSalary}",
                                   "${jobs!.minAge}-${jobs!.maxAge} years old",
                                   "${jobs!.headcount} Positions",
+                                  ...jobs!.jobFields,
                                 ]
                               : [],
                         ),

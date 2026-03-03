@@ -5,6 +5,8 @@ import 'package:client/src/components/ResumePage/exprience_card.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/models/personal_info_model.dart';
+import 'package:client/src/services/auth_storage.dart';
+import 'package:client/src/services/resume_services.dart';
 import 'package:flutter/material.dart';
 
 class ResumePage extends StatefulWidget {
@@ -22,17 +24,118 @@ class _ResumePageState extends State<ResumePage> {
       GlobalKey<EducationCardState>();
   final GlobalKey<ExperienceCardState> _experienceKey =
       GlobalKey<ExperienceCardState>();
+
+  final ResumeService _resumeService = ResumeService();
+  final AuthStorage _authStorage = AuthStorage();
+
   bool _isPersonalInfoEditing = false;
+  bool _isLoading = false;
   PersonalInformation _personalData = PersonalInformation(
     fullName: "",
-    age: "",
-    phone: "",
-    email: "",
-    address: "",
+    age: null,
+    phone: null,
+    email: null,
+    address: null,
     skills: [],
     education: [],
     experience: [],
   );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadResume();
+  }
+
+  void _onEditPressed() {
+    setState(() {
+      _isPersonalInfoEditing = true;
+    });
+  }
+
+  void _onCancelPressed() {
+    _personalInfoKey.currentState?.resetData();
+    _skillsKey.currentState?.resetData();
+    _educationKey.currentState?.resetData();
+    _experienceKey.currentState?.resetData();
+    setState(() {
+      _isPersonalInfoEditing = false;
+    });
+  }
+
+  void _onSavePressed() {
+    final updatedInfo = _personalInfoKey.currentState?.getUpdatedData();
+    final updatedSkills = _skillsKey.currentState?.getUpdatedSkills();
+    final updatedEducation = _educationKey.currentState?.getUpdatedEducation();
+    final updatedExperience = _experienceKey.currentState
+        ?.getUpdatedExperience();
+
+    if (updatedInfo != null &&
+        updatedSkills != null &&
+        updatedEducation != null &&
+        updatedExperience != null) {
+      final newData = updatedInfo.copyWith(
+        skills: updatedSkills,
+        education: updatedEducation,
+        experience: updatedExperience,
+      );
+      _saveResume(newData);
+    }
+  }
+
+  Future<void> _loadResume() async {
+    setState(() => _isLoading = true);
+    try {
+      final token = await _authStorage.getToken();
+      if (token != null) {
+        final data = await _resumeService.getMyResume(token);
+        if (!mounted) return;
+        setState(() {
+          _personalData = data;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading resume: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _saveResume(PersonalInformation data) async {
+    setState(() => _isLoading = true);
+    try {
+      final token = await _authStorage.getToken();
+      if (token != null) {
+        final updatedData = await _resumeService.saveResume(token, data);
+        if (!mounted) return;
+        setState(() {
+          _personalData = updatedData;
+          _isPersonalInfoEditing = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Saved successfully')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error saving resume: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +162,7 @@ class _ResumePageState extends State<ResumePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "My Profile",
+                  "My Resume",
                   style: TextStyle(
                     fontSize: AppFontSizes.subtitle,
                     fontWeight: FontWeight.bold,
@@ -67,11 +170,7 @@ class _ResumePageState extends State<ResumePage> {
                 ),
                 if (!_isPersonalInfoEditing)
                   ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _isPersonalInfoEditing = true;
-                      });
-                    },
+                    onPressed: _onEditPressed,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: AppColors.textPrimary,
@@ -80,36 +179,13 @@ class _ResumePageState extends State<ResumePage> {
                       ),
                       elevation: 1,
                     ),
-                    child: const Text("Edit Profile"),
+                    child: const Text("Edit Resume"),
                   )
                 else
                   Row(
                     children: [
                       ElevatedButton(
-                        onPressed: () {
-                          final updatedInfo = _personalInfoKey.currentState
-                              ?.getUpdatedData();
-                          final updatedSkills = _skillsKey.currentState
-                              ?.getUpdatedSkills();
-                          final updatedEducation = _educationKey.currentState
-                              ?.getUpdatedEducation();
-                          final updatedExperience = _experienceKey.currentState
-                              ?.getUpdatedExperience();
-
-                          if (updatedInfo != null &&
-                              updatedSkills != null &&
-                              updatedEducation != null &&
-                              updatedExperience != null) {
-                            setState(() {
-                              _personalData = updatedInfo.copyWith(
-                                skills: updatedSkills,
-                                education: updatedEducation,
-                                experience: updatedExperience,
-                              );
-                              _isPersonalInfoEditing = false;
-                            });
-                          }
-                        },
+                        onPressed: _isLoading ? null : _onSavePressed,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: AppColors.textPrimary,
@@ -118,24 +194,22 @@ class _ResumePageState extends State<ResumePage> {
                           ),
                           elevation: 1,
                         ),
-                        child: const Text("บันทึก"),
+                        child: Text(_isLoading ? "Saving..." : "Save"),
                       ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            _isPersonalInfoEditing = false;
-                          });
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      if (!_isLoading) ...[
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: _onCancelPressed,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
+                          child: const Text("Cancel"),
                         ),
-                        child: const Text("ยกเลิก"),
-                      ),
+                      ],
                     ],
                   ),
               ],
@@ -160,6 +234,13 @@ class _ResumePageState extends State<ResumePage> {
               experience: _personalData.experience,
               isEditing: _isPersonalInfoEditing,
             ),
+            if (_isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
           ],
         ),
       ),

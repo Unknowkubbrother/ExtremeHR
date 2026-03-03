@@ -3,6 +3,7 @@ import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
 import 'package:client/src/models/education_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class EducationCard extends StatefulWidget {
   final List<Education> education;
@@ -27,6 +28,10 @@ class EducationCardState extends State<EducationCard> {
     _initControllers();
   }
 
+  void resetData() {
+    _initControllers();
+  }
+
   void _initControllers() {
     _controllers.clear();
     for (var edu in widget.education) {
@@ -43,10 +48,10 @@ class EducationCardState extends State<EducationCard> {
         EducationEntryControllers(
           Education(
             institution: "",
-            degree: "",
-            faculty: "",
-            major: "",
-            gpax: "",
+            degree: null,
+            faculty: null,
+            major: null,
+            gpax: null,
             startYear: null,
             startMonth: null,
             endYear: null,
@@ -159,7 +164,12 @@ class EducationCardState extends State<EducationCard> {
         const SizedBox(height: 12),
         _buildField("สาขา (Major)", controllers.major),
         const SizedBox(height: 12),
-        _buildField("เกรดเฉลี่ย (GPAX)", controllers.gpax),
+        _buildField(
+          "เกรดเฉลี่ย (GPAX)",
+          controllers.gpax,
+          isNumber: true,
+          isDecimal: true,
+        ),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -208,6 +218,7 @@ class EducationCardState extends State<EducationCard> {
     String title,
     TextEditingController controller, {
     bool isNumber = false,
+    bool isDecimal = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +235,12 @@ class EducationCardState extends State<EducationCard> {
         if (widget.isEditing)
           TextField(
             controller: controller,
-            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+            keyboardType: isDecimal
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : (isNumber ? TextInputType.number : TextInputType.text),
+            inputFormatters: isDecimal
+                ? [FilteringTextInputFormatter.allow(RegExp(r'^\d?\.?\d{0,2}'))]
+                : (isNumber ? [FilteringTextInputFormatter.digitsOnly] : null),
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
@@ -278,10 +294,10 @@ class EducationEntryControllers {
 
   EducationEntryControllers(Education edu)
     : institution = TextEditingController(text: edu.institution),
-      degree = TextEditingController(text: edu.degree),
-      faculty = TextEditingController(text: edu.faculty),
-      major = TextEditingController(text: edu.major),
-      gpax = TextEditingController(text: edu.gpax),
+      degree = TextEditingController(text: edu.degree ?? ''),
+      faculty = TextEditingController(text: edu.faculty ?? ''),
+      major = TextEditingController(text: edu.major ?? ''),
+      gpax = TextEditingController(text: edu.gpax?.toString() ?? ''),
       startYear = TextEditingController(text: edu.startYear?.toString() ?? ''),
       startMonth = TextEditingController(
         text: edu.startMonth?.toString() ?? '',
@@ -292,10 +308,10 @@ class EducationEntryControllers {
   Education toEducation() {
     return Education(
       institution: institution.text,
-      degree: degree.text,
-      faculty: faculty.text,
-      major: major.text,
-      gpax: gpax.text,
+      degree: degree.text.isEmpty ? null : degree.text,
+      faculty: faculty.text.isEmpty ? null : faculty.text,
+      major: major.text.isEmpty ? null : major.text,
+      gpax: double.tryParse(gpax.text),
       startYear: int.tryParse(startYear.text),
       startMonth: int.tryParse(startMonth.text),
       endYear: int.tryParse(endYear.text),
