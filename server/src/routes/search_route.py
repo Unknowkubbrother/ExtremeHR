@@ -130,6 +130,7 @@ def search(
         job_id = doc.metadata["job_id"]
         if job_id not in seen_jobs or score > seen_jobs[job_id]["similarity"]:
             seen_jobs[job_id] = {
+                "id": job_id,
                 "title": doc.metadata["title"],
                 "description": doc.metadata["description"],
                 "similarity": score,
@@ -137,4 +138,4 @@ def search(
 
     output = sorted(seen_jobs.values(), key=lambda x: x["similarity"], reverse=True)
 
-    return {"message": output[:10]}
+    return {"message": output[:5]}
