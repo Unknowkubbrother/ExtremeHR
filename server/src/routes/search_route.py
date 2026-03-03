@@ -122,7 +122,7 @@ def search(
 
     results = vectorstore.similarity_search_with_relevance_scores(
         search_request.query,
-        k=20,
+        k=10,
     )
 
     seen_jobs = {}
