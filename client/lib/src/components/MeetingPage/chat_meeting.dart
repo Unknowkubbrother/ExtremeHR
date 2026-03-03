@@ -26,10 +26,13 @@ class _ChatMeetingState extends State<ChatMeeting> {
   int? _currentUserId;
   String? _currentUserFullName;
   String _currentText = "";
+  String _lastDisplayedText = ""; // Debounce: skip if text didn't change
   bool _isNewMessage = true;
   bool _isInitialized = false;
   Timer? _silenceTimer;
   Timer? _guardianTimer;
+  int _committedLength =
+      0; // Track how much text is already in previous bubbles
 
   final List<ChatMessage> _messages = [
     const ChatMessage(
@@ -62,7 +65,6 @@ class _ChatMeetingState extends State<ChatMeeting> {
   @override
   void initState() {
     super.initState();
-    _initIdentity();
     _initIdentity();
     _initSpeech();
     _startGuardian();
@@ -137,8 +139,14 @@ class _ChatMeetingState extends State<ChatMeeting> {
     } else if (status == 'done' || status == 'notListening') {
       _isAttempting = false;
 
+      // When engine restarts naturally, reset committed offset
+      if (mounted) {
+        _committedLength = 0;
+        _isNewMessage = true;
+        _currentText = "";
+      }
+
       // PROTECT UI: Keep _isListening TRUE if the widget mic is still ON.
-      // This prevents the flickering indicator.
       if (mounted && !widget.isMicOn) {
         setState(() => _isListening = false);
       }
@@ -155,10 +163,29 @@ class _ChatMeetingState extends State<ChatMeeting> {
     super.didUpdateWidget(oldWidget);
     if (widget.isMicOn != oldWidget.isMicOn) {
       if (widget.isMicOn) {
+        // Mic turned ON — full reset and start fresh
+        _committedLength = 0;
+        _isNewMessage = true;
+        _currentText = "";
+        _lastDisplayedText = "";
+        _isAttempting = false;
+        _isListening = false;
+        _silenceTimer?.cancel();
         _listen();
       } else {
+        // Mic turned OFF — stop everything cleanly
+        _silenceTimer?.cancel();
         _speechToText.stop();
-        if (mounted) setState(() => _isListening = false);
+        if (mounted) {
+          setState(() {
+            _isListening = false;
+            _isAttempting = false;
+            _isNewMessage = true;
+            _currentText = "";
+            _lastDisplayedText = "";
+            _committedLength = 0;
+          });
+        }
       }
     }
   }
@@ -183,8 +210,9 @@ class _ChatMeetingState extends State<ChatMeeting> {
   }
 
   void _listen() async {
-    if (_isListening || _isAttempting || !widget.isMicOn || !_isInitialized)
+    if (_isListening || _isAttempting || !widget.isMicOn || !_isInitialized) {
       return;
+    }
 
     _isAttempting = true;
     debugPrint('STT: Starting listen loop...');
@@ -193,30 +221,52 @@ class _ChatMeetingState extends State<ChatMeeting> {
       await _speechToText.listen(
         localeId: 'th_TH',
         listenMode: stt.ListenMode.dictation,
-        pauseFor: const Duration(hours: 1), // Engine will NOT stop on silence
+        pauseFor: const Duration(hours: 1),
         listenFor: const Duration(hours: 1),
         cancelOnError: false,
         partialResults: true,
         onResult: (val) {
           if (!mounted || !widget.isMicOn) return;
-          if (val.recognizedWords.trim().isEmpty) return;
 
-          // Reset silence timer for manual finalization
+          final fullText = val.recognizedWords;
+          if (fullText.trim().isEmpty) return;
+
+          // --- Noise filtering ---
+          // Skip low-confidence results (0 means unknown/partial, so allow it)
+          if (val.confidence > 0 && val.confidence < 0.3) {
+            debugPrint('STT: Skipped low confidence (${val.confidence})');
+            return;
+          }
+
+          // Extract only the NEW portion after committed text
+          String newText;
+          if (fullText.length > _committedLength) {
+            newText = fullText.substring(_committedLength).trim();
+          } else {
+            newText = fullText.trim();
+          }
+          if (newText.isEmpty) return;
+
+          // Debounce: skip if the displayed text hasn't actually changed
+          if (newText == _lastDisplayedText) return;
+          _lastDisplayedText = newText;
+
+          // Reset silence timer — after 2s silence, commit this bubble
           _silenceTimer?.cancel();
-          _silenceTimer = Timer(const Duration(seconds: 3), () {
+          _silenceTimer = Timer(const Duration(seconds: 2), () {
             if (mounted && _currentText.isNotEmpty) {
+              debugPrint('STT: Silence detected, finalizing bubble.');
+              _committedLength = fullText.length;
               setState(() {
                 _isNewMessage = true;
                 _currentText = "";
-                debugPrint(
-                  'STT: Silence detected, finalizing bubble manually.',
-                );
+                _lastDisplayedText = "";
               });
             }
           });
 
           setState(() {
-            _currentText = val.recognizedWords;
+            _currentText = newText;
             String time =
                 "${DateTime.now().minute}:${DateTime.now().second.toString().padLeft(2, '0')}";
 
