@@ -1,6 +1,4 @@
 import 'package:client/src/components/HR/HomeHRPage/dashboard_page.dart';
-import 'package:client/src/components/HR/HomeHRPage/job_list_hr.dart';
-import 'package:client/src/components/HomePage/search_bar.dart';
 import 'package:flutter/material.dart';
 
 class HRHomePage extends StatefulWidget {
@@ -10,26 +8,57 @@ class HRHomePage extends StatefulWidget {
   State<HRHomePage> createState() => _HRHomePageState();
 }
 
-void _search(String q) {
-  debugPrint("search: $q");
-}
-
 class _HRHomePageState extends State<HRHomePage> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Column(
         children: [
-          DashBoard(),
+          const DashBoard(),
           const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: SearchJobBar(onSearch: _search),
+
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.black12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Recent activity",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 10),
+                _ActivityRow("New applicant: John • Frontend Dev", "2m ago"),
+                SizedBox(height: 8),
+                _ActivityRow("New applicant: John • Frontend Dev", "2m ago"),
+                SizedBox(height: 8),
+                _ActivityRow("New applicant: John • Frontend Dev", "2m ago"),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          JobListHR(),
         ],
       ),
+    );
+  }
+}
+
+class _ActivityRow extends StatelessWidget {
+  final String title;
+  final String time;
+  const _ActivityRow(this.title, this.time);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Text(title)),
+        Text(time, style: const TextStyle(color: Colors.grey)),
+      ],
     );
   }
 }

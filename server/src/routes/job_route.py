@@ -23,6 +23,7 @@ def get_jobs(db: Session = Depends(get_db), current_user_id: int = Depends(get_c
         FROM jobs j
         JOIN users u ON j.user_id = u.id
         LEFT JOIN companies c ON u.id = c.user_id
+        WHERE j.is_active = true
     """)
     results = db.execute(sql_get_jobs).fetchall()
     
@@ -45,7 +46,7 @@ def get_job_detail(job_id: int, db: Session = Depends(get_db), current_user_id: 
         FROM jobs j
         JOIN users u ON j.user_id = u.id
         LEFT JOIN companies c ON u.id = c.user_id
-        WHERE j.id = :id
+        WHERE j.id = :id AND j.is_active = true
     """)
     job = db.execute(sql_get_job, {"id": job_id}).first()
     

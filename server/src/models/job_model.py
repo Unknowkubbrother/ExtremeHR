@@ -3,6 +3,7 @@ from sqlalchemy import (
     String,
     BigInteger,
     Integer,
+    Boolean,
     DateTime,
     Text,
     func,
@@ -30,6 +31,8 @@ class Job(Base):
     maxAge = Column(Integer, nullable=False, default=99)
     minSalary = Column(Integer, nullable=False, default=0)
     maxSalary = Column(Integer, nullable=False, default=0)
+
+    is_active = Column(Boolean, nullable=False, server_default='true', default=True)
 
     postedAt = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -29,3 +29,23 @@ class JobHR {
     };
   }
 }
+
+class JobStats {
+  final int activeJobs;
+  final int interviews;
+  final int approved;
+
+  JobStats({
+    required this.activeJobs,
+    required this.interviews,
+    required this.approved,
+  });
+
+  factory JobStats.fromJson(Map<String, dynamic> json) {
+    return JobStats(
+      activeJobs: json['active_jobs'],
+      interviews: json['interviews'],
+      approved: json['approved'],
+    );
+  }
+}

@@ -1,5 +1,8 @@
 import 'package:client/src/components/ResumePage/card_content.dart';
+import 'package:client/src/models/job_hr_model.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
+import 'package:client/src/services/auth_storage.dart';
+import 'package:client/src/services/job_services.dart';
 import 'package:flutter/material.dart';
 
 class DashBoard extends StatefulWidget {
@@ -10,6 +13,37 @@ class DashBoard extends StatefulWidget {
 }
 
 class _DashBoardState extends State<DashBoard> {
+  final AuthStorage _authService = AuthStorage();
+  final JobServices _jobService = JobServices();
+
+  bool _isLoading = true;
+  JobStats? _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    setState(() => _isLoading = true);
+    try {
+      final token = await _authService.getToken();
+      if (token != null) {
+        final stats = await _jobService.getHRStats(token);
+        if (mounted) {
+          setState(() {
+            _stats = stats;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading stats: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -21,21 +55,25 @@ class _DashBoardState extends State<DashBoard> {
             children: [
               _buildStatCard(
                 title: "Active Jobs",
-                value: "12",
+                value: _isLoading
+                    ? "..."
+                    : _stats?.activeJobs.toString() ?? "0",
                 icon: Icons.work_outline_rounded,
                 color: Colors.lightBlue,
               ),
               const SizedBox(width: 12),
               _buildStatCard(
                 title: "Interviews",
-                value: "45",
+                value: _isLoading
+                    ? "..."
+                    : _stats?.interviews.toString() ?? "0",
                 icon: Icons.people_outline_rounded,
                 color: Colors.amber,
               ),
               const SizedBox(width: 12),
               _buildStatCard(
                 title: "Approve",
-                value: "30",
+                value: _isLoading ? "..." : _stats?.approved.toString() ?? "0",
                 icon: Icons.check_circle_outline_rounded,
                 color: Colors.green,
               ),

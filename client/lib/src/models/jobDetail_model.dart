@@ -1,4 +1,5 @@
 class JobDetail {
+  final int id;
   final String title;
   final List<String> jobFields;
   final String company;
@@ -18,6 +19,7 @@ class JobDetail {
   final DateTime postedAt;
 
   JobDetail({
+    required this.id,
     required this.title,
     required this.jobFields,
     required this.company,
@@ -35,6 +37,7 @@ class JobDetail {
   });
 
   JobDetail copyWith({
+    int? id,
     String? title,
     List<String>? jobFields,
     String? company,
@@ -51,6 +54,7 @@ class JobDetail {
     DateTime? postedAt,
   }) {
     return JobDetail(
+      id: id ?? this.id,
       title: title ?? this.title,
       jobFields: jobFields ?? this.jobFields,
       company: company ?? this.company,
@@ -70,6 +74,7 @@ class JobDetail {
 
   factory JobDetail.fromJson(Map<String, dynamic> json) {
     return JobDetail(
+      id: json['id'] ?? 0,
       title: json['title'] ?? '',
       jobFields: List<String>.from(json['job_fields'] ?? []),
       company: json['company'] ?? '',

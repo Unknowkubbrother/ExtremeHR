@@ -43,7 +43,7 @@ class JobServices {
   Future<JobDetail> createJob(String token, JobCreate job) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
     final response = await http.post(
-      Uri.parse('$apiUrl/jobs/create'),
+      Uri.parse('$apiUrl/jobs_hr/create'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -60,7 +60,7 @@ class JobServices {
   Future<JobDetail> updateJob(String token, JobUpdate job) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
     final response = await http.post(
-      Uri.parse('$apiUrl/jobs/update'),
+      Uri.parse('$apiUrl/jobs_hr/update'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -91,7 +91,7 @@ class JobServices {
     }
   }
 
-  Future<Map<String, dynamic>> getHRStats(String token) async {
+  Future<JobStats> getHRStats(String token) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
     final response = await http.get(
       Uri.parse('$apiUrl/jobs_hr/hr/stats'),
@@ -101,9 +101,25 @@ class JobServices {
       },
     );
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      return JobStats.fromJson(jsonDecode(response.body));
     } else {
       throw Exception('Failed to get HR stats');
+    }
+  }
+
+  Future<bool> deleteJob(String token, int jobId) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.post(
+      Uri.parse('$apiUrl/jobs_hr/delete/$jobId'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      return true;
+    } else {
+      throw Exception('Failed to delete job');
     }
   }
 }
