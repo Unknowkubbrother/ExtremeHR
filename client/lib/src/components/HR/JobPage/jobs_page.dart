@@ -1,3 +1,5 @@
+import 'package:client/src/components/HR/JobPage/job_detail_hr_page.dart';
+import 'package:client/src/components/HR/JobPage/job_edit_page.dart';
 import 'package:client/src/components/HomePage/card_list.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
@@ -17,6 +19,7 @@ class _JobsHRPageState extends State<JobsHRPage> {
   final JobServices _jobService = JobServices();
   final AuthStorage _authService = AuthStorage();
   List<JobHR> _jobs = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -25,16 +28,21 @@ class _JobsHRPageState extends State<JobsHRPage> {
   }
 
   Future<void> _loadJobs() async {
+    setState(() => _isLoading = true);
     try {
       final token = await _authService.getToken();
       if (token != null) {
         final jobs = await _jobService.getJobsByHR(token);
-        setState(() {
-          _jobs = jobs;
-        });
+        if (mounted) {
+          setState(() {
+            _jobs = jobs;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading jobs: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -55,7 +63,15 @@ class _JobsHRPageState extends State<JobsHRPage> {
                 ),
               ),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const JobEditPage(),
+                    ),
+                  );
+                  if (result != null) _loadJobs();
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.textPrimary,
@@ -64,17 +80,25 @@ class _JobsHRPageState extends State<JobsHRPage> {
                   ),
                   elevation: 1,
                 ),
-                child: Text("Add Job"),
+                child: const Text("Add Job"),
               ),
             ],
           ),
         ),
-        Expanded(child: _buildList()),
+        if (_isLoading && _jobs.isEmpty)
+          const Expanded(child: Center(child: CircularProgressIndicator()))
+        else
+          Expanded(
+            child: RefreshIndicator(onRefresh: _loadJobs, child: _buildList()),
+          ),
       ],
     );
   }
 
   Widget _buildList() {
+    if (_jobs.isEmpty) {
+      return const Center(child: Text("No jobs posted yet."));
+    }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _jobs.length,
@@ -83,8 +107,14 @@ class _JobsHRPageState extends State<JobsHRPage> {
         final job = _jobs[index];
         return CardList(
           icon: Icons.work_outline,
-          action: () {
-            debugPrint("Job Card Clicked: ${job.title}");
+          action: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => JobDetailHRPage(jobId: job.id),
+              ),
+            );
+            _loadJobs();
           },
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

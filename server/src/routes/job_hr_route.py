@@ -4,9 +4,10 @@ from sqlalchemy import text
 from typing import List
 
 from src.databases.db_connect import get_db
-from src.schemas.job_schema import JobDetailResponse, JobCreate, JobUpdate, JobHRResponse
+from src.schemas.job_schema import JobDetailResponse, JobCreate, JobUpdate, JobHRResponse, JobStats
 from src.utils.auth_utils import get_current_user_id
 from src.routes.job_route import require_hr_role
+from src.routes.job_route import get_job_detail
 
 job_hr_router = APIRouter()
 
@@ -31,7 +32,6 @@ def create_job(job_data: JobCreate, db: Session = Depends(get_db), hr_user_id: i
     job_id = result.fetchone()[0]
     db.commit()
     
-    # Return detail with joined info
     return get_job_detail(job_id, db, hr_user_id)
 
 @job_hr_router.post("/update", response_model=JobDetailResponse, tags=["jobs hr"])
@@ -64,8 +64,22 @@ def update_job(job_data: JobUpdate, db: Session = Depends(get_db), hr_user_id: i
     
     db.commit()
     
-    # Return detail with joined info
     return get_job_detail(job_id, db, hr_user_id)
+
+@job_hr_router.post("/delete/{job_id}", response_model=bool, tags=["jobs hr"])
+def delete_job(job_id: int, db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):
+    sql_toggle = text("""
+        UPDATE jobs 
+        SET is_active = false
+        WHERE id = :id AND user_id = :user_id
+    """)
+    
+    result = db.execute(sql_toggle, {"id": job_id, "user_id": hr_user_id})
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Job not found or not authorized")
+    
+    db.commit()
+    return True
 
 @job_hr_router.get("/hr", response_model=List[JobHRResponse], tags=["jobs hr"])
 def get_hr_jobs(db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):
@@ -74,20 +88,21 @@ def get_hr_jobs(db: Session = Depends(get_db), hr_user_id: int = Depends(require
         FROM jobs j
         JOIN users u ON j.user_id = u.id
         LEFT JOIN companies c ON u.id = c.user_id
-        WHERE j.user_id = :hr_user_id
+        WHERE j.user_id = :hr_user_id AND j.is_active = true
+        ORDER BY j."postedAt" DESC
     """)
     results = db.execute(sql_get_jobs, {"hr_user_id": hr_user_id}).fetchall()
     return [dict(row._mapping) for row in results]
 
-@job_hr_router.get("/hr/stats", tags=["jobs hr"])
+@job_hr_router.get("/hr/stats", response_model=JobStats, tags=["jobs hr"])
 def get_hr_stats(db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):
     sql_stats = text("""
         SELECT 
-            COUNT(*) as active_jobs,
+            COUNT(*) FILTER (WHERE is_active = true) as active_jobs,
             0 as interviews,
             0 as approved
         FROM jobs 
         WHERE user_id = :hr_user_id
     """)
     stats = db.execute(sql_stats, {"hr_user_id": hr_user_id}).first()
-    return dict(stats._mapping)
+    return JobStats(**stats._mapping)

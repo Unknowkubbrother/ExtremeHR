@@ -41,6 +41,8 @@ class JobUpdate(BaseModel):
 
 class JobDetailResponse(JobCreate):
     id: int
+    company: str
+    location: str
     postedAt: datetime
     
     model_config = ConfigDict(from_attributes=True)
@@ -52,3 +54,8 @@ class JobHRResponse(BaseModel):
     candidate_count: int
 
     model_config = ConfigDict(from_attributes=True)
+
+class JobStats(BaseModel):
+    active_jobs: int
+    interviews: int
+    approved: int
