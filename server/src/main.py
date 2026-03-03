@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import auth_route, job_route
+from .routes import auth_route, job_route, resume_route, company_route, job_hr_route
 
 app = FastAPI()
 
@@ -20,4 +20,7 @@ def read_root():
 
 app.include_router(auth_route.auth_router, prefix="/auth")
 app.include_router(job_route.job_router, prefix="/jobs")
+app.include_router(resume_route.resume_router, prefix="/resume")
+app.include_router(company_route.company_router, prefix="/company")
+app.include_router(job_hr_route.job_hr_router, prefix="/jobs_hr")
 # uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload

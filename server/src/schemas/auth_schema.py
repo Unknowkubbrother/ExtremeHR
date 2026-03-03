@@ -13,6 +13,11 @@ class UserLogin(BaseModel):
     password: str
     role: str = "candidate"
 
+class UserUpdate(BaseModel):
+    username: str
+    email: EmailStr
+    password: Optional[str] = None
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
