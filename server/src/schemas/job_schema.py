@@ -52,6 +52,7 @@ class JobHRResponse(BaseModel):
     title: str
     company: str
     candidate_count: int
+    postedAt: datetime
 
     model_config = ConfigDict(from_attributes=True)
 

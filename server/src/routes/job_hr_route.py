@@ -84,7 +84,7 @@ def delete_job(job_id: int, db: Session = Depends(get_db), hr_user_id: int = Dep
 @job_hr_router.get("/hr", response_model=List[JobHRResponse], tags=["jobs hr"])
 def get_hr_jobs(db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):
     sql_get_jobs = text("""
-        SELECT j.id, j.title, COALESCE(c.name, '-') as company, 0 as candidate_count 
+        SELECT j.id, j.title, COALESCE(c.name, '-') as company, 0 as candidate_count, j."postedAt" 
         FROM jobs j
         JOIN users u ON j.user_id = u.id
         LEFT JOIN companies c ON u.id = c.user_id
