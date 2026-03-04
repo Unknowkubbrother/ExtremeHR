@@ -122,4 +122,25 @@ class JobServices {
       throw Exception('Failed to delete job');
     }
   }
+
+  Future<List<Map<String, dynamic>>> searchJobs(
+    String token,
+    String query,
+  ) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.post(
+      Uri.parse('$apiUrl/search/'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'query': query}),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return List<Map<String, dynamic>>.from(data['message']);
+    } else {
+      throw Exception('Failed to search jobs');
+    }
+  }
 }

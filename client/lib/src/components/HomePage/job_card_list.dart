@@ -7,7 +7,8 @@ import 'package:client/src/services/job_services.dart';
 import 'package:client/src/models/jobList_model.dart';
 
 class JobCardList extends StatefulWidget {
-  const JobCardList({super.key});
+  final List<int>? filterJobIds;
+  const JobCardList({super.key, this.filterJobIds});
 
   @override
   State<JobCardList> createState() => _JobCardListState();
@@ -46,14 +47,25 @@ class _JobCardListState extends State<JobCardList> {
     getJobs();
   }
 
+  List<JobListItem> get _displayedJobs {
+    if (widget.filterJobIds == null) return jobs;
+    final idOrder = widget.filterJobIds!;
+    final filtered = jobs.where((j) => idOrder.contains(j.jobId)).toList();
+    filtered.sort(
+      (a, b) => idOrder.indexOf(a.jobId).compareTo(idOrder.indexOf(b.jobId)),
+    );
+    return filtered;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final displayJobs = _displayedJobs;
     return Expanded(
       child: ListView.separated(
-        itemCount: jobs.length,
+        itemCount: displayJobs.length,
         separatorBuilder: (context, index) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
-          final job = jobs[index];
+          final job = displayJobs[index];
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: CardList(

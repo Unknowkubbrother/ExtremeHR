@@ -10,7 +10,7 @@ import os
 import hashlib
 import numpy as np
 
-from huggingface_hub import InferenceClient
+from FlagEmbedding import BGEM3FlagModel
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -41,31 +41,35 @@ def _save_hash(h: str):
         f.write(h)
 
 
-class HFEmbeddings(Embeddings):
-    def __init__(self):
-        self.client = InferenceClient(
-            provider="scaleway",
-            api_key=os.environ["HF_TOKEN"],
-        )
-        self.model = "Qwen/Qwen3-Embedding-8B"
+_model = None
 
+def _get_model() -> BGEM3FlagModel:
+    global _model
+    if _model is None:
+        _model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=True)
+    return _model
+
+
+class LocalEmbeddings(Embeddings):
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        vectors = []
-        for t in texts:
-            vec = self.client.feature_extraction(t, model=self.model)
-            vectors.append(np.array(vec).flatten().tolist())
-        return vectors
+        model = _get_model()
+        result = model.encode(texts)
+        return result["dense_vecs"].tolist()
 
     def embed_query(self, text: str) -> list[float]:
-        vec = self.client.feature_extraction(text, model=self.model)
-        return np.array(vec).flatten().tolist()
+        model = _get_model()
+        result = model.encode([text])
+        return result["dense_vecs"][0].tolist()
 
 
-embeddings = HFEmbeddings()
+os.makedirs(VECTOR_DIR, exist_ok=True)
+
+embeddings = LocalEmbeddings()
 vectorstore = Chroma(
     collection_name="jobs",
     persist_directory=VECTOR_DIR,
     embedding_function=embeddings,
+    collection_metadata={"hnsw:space": "cosine"}
 )
 
 
@@ -76,7 +80,7 @@ def _compute_hash(rows: list[dict]) -> str:
 
 def _sync_chroma(db: Session):
     rows_raw = db.execute(
-        text("SELECT id, title, description FROM jobs")
+        text("SELECT id, title, description FROM jobs WHERE is_active = true")
     ).fetchall()
     rows = [dict(r._mapping) for r in rows_raw]
 
@@ -118,24 +122,36 @@ def search(
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id),
 ):
-    _sync_chroma(db)
+    try:
+        _sync_chroma(db)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
 
-    results = vectorstore.similarity_search_with_relevance_scores(
+    if vectorstore._collection.count() == 0:
+        return {"message": []}
+
+    results = vectorstore.similarity_search_with_score(
         search_request.query,
         k=20,
     )
 
     seen_jobs = {}
-    for doc, score in results:
+    import math
+    for doc, distance in results:
         job_id = doc.metadata["job_id"]
-        if job_id not in seen_jobs or score > seen_jobs[job_id]["similarity"]:
+        similarity = 1.0 - (distance / 2.0)
+        if math.isnan(similarity):
+            similarity = 0.0
+            
+        if job_id not in seen_jobs or similarity > seen_jobs[job_id]["similarity"]:
             seen_jobs[job_id] = {
                 "id": job_id,
                 "title": doc.metadata["title"],
                 "description": doc.metadata["description"],
-                "similarity": score,
+                "similarity": similarity,
             }
 
     output = sorted(seen_jobs.values(), key=lambda x: x["similarity"], reverse=True)
 
-    return {"message": output[:5]}
+    return {"message": output}

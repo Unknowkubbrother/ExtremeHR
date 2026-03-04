@@ -8,10 +8,11 @@ bcrypt
 pyjwt
 python-multipart
 
-huggingface_hub
 numpy
 
 langchain
 langchain-text-splitters
 langchain-chroma
 chromadb
+FlagEmbedding
+transformers<5.0.0
