@@ -44,6 +44,8 @@ class JobDetailResponse(JobCreate):
     company: str
     location: str
     postedAt: datetime
+    is_applied: bool = False
+    application_status: Optional[str] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -52,6 +54,9 @@ class JobHRResponse(BaseModel):
     title: str
     company: str
     candidate_count: int
+    approved_count: int = 0
+    waiting_count: int = 0
+    headcount: int = 0
     postedAt: datetime
 
     model_config = ConfigDict(from_attributes=True)

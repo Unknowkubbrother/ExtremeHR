@@ -5,6 +5,7 @@ from typing import List
 
 from src.databases.db_connect import get_db
 from src.schemas.job_schema import JobDetailResponse, JobCreate, JobUpdate, JobHRResponse, JobStats
+from src.enums.apply_status_enum import ApplyStatusEnum
 from src.utils.auth_utils import get_current_user_id
 from src.routes.job_route import require_hr_role
 from src.routes.job_route import get_job_detail
@@ -83,8 +84,13 @@ def delete_job(job_id: int, db: Session = Depends(get_db), hr_user_id: int = Dep
 
 @job_hr_router.get("/hr", response_model=List[JobHRResponse], tags=["jobs hr"])
 def get_hr_jobs(db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):
-    sql_get_jobs = text("""
-        SELECT j.id, j.title, COALESCE(c.name, '-') as company, 0 as candidate_count, j."postedAt" 
+    sql_get_jobs = text(f"""
+        SELECT j.id, j.title, COALESCE(c.name, '-') as company, 
+               (SELECT COUNT(i.id) FROM interviews i WHERE i.job_id = j.id AND i.is_active = true) as candidate_count, 
+               (SELECT COUNT(i.id) FROM interviews i WHERE i.job_id = j.id AND i.is_active = true AND i.status = '{ApplyStatusEnum.ACCEPTED.value}') as approved_count,
+               (SELECT COUNT(i.id) FROM interviews i WHERE i.job_id = j.id AND i.is_active = true AND i.status = '{ApplyStatusEnum.WAITING.value}') as waiting_count,
+               j.headcount,
+               j."postedAt" 
         FROM jobs j
         JOIN users u ON j.user_id = u.id
         LEFT JOIN companies c ON u.id = c.user_id
@@ -96,13 +102,14 @@ def get_hr_jobs(db: Session = Depends(get_db), hr_user_id: int = Depends(require
 
 @job_hr_router.get("/hr/stats", response_model=JobStats, tags=["jobs hr"])
 def get_hr_stats(db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):
-    sql_stats = text("""
+    sql_stats = text(f"""
         SELECT 
-            COUNT(*) FILTER (WHERE is_active = true) as active_jobs,
-            0 as interviews,
-            0 as approved
-        FROM jobs 
-        WHERE user_id = :hr_user_id
+            COUNT(DISTINCT j.id) FILTER (WHERE j.is_active = true) as active_jobs,
+            COUNT(i.id) FILTER (WHERE i.is_active = true) as interviews,
+            COUNT(i.id) FILTER (WHERE i.is_active = true AND i.status = '{ApplyStatusEnum.ACCEPTED.value}') as approved
+        FROM jobs j
+        LEFT JOIN interviews i ON j.id = i.job_id
+        WHERE j.user_id = :hr_user_id
     """)
     stats = db.execute(sql_stats, {"hr_user_id": hr_user_id}).first()
     return JobStats(**stats._mapping)

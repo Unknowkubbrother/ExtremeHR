@@ -5,6 +5,7 @@ import 'package:client/src/components/ResumePage/card_content.dart';
 import 'package:client/src/services/auth_storage.dart';
 import 'package:client/src/services/job_services.dart';
 import 'package:client/src/models/jobDetail_model.dart';
+import 'package:client/src/services/interview_service.dart';
 
 class JobDetailPage extends StatefulWidget {
   const JobDetailPage({super.key, required this.jobId});
@@ -18,7 +19,9 @@ class JobDetailPage extends StatefulWidget {
 class _JobDetailPageState extends State<JobDetailPage> {
   final storage = AuthStorage();
   final jobServices = JobServices();
+  final interviewService = InterviewService();
   JobDetail? jobs;
+  bool isLoading = false;
 
   Future<void> getJobDetail() async {
     try {
@@ -42,6 +45,84 @@ class _JobDetailPageState extends State<JobDetailPage> {
         const SnackBar(content: Text('Failed to load job detail1')),
       );
       debugPrint(e.toString());
+    }
+  }
+
+  Future<void> apply_job() async {
+    if (isLoading) return;
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      final token = await storage.getToken();
+
+      final response = await interviewService.applyJob(token!, widget.jobId);
+
+      if (!mounted) return;
+      if (response.isSuccess) {
+        setState(() {
+          jobs = jobs?.copyWith(isApplied: true, applicationStatus: 'waiting');
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Successfully applied for the job')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to apply for job')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to apply for job')));
+      debugPrint(e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> cancel_application() async {
+    if (isLoading) return;
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      final token = await storage.getToken();
+
+      final response = await interviewService.cancelJob(token!, widget.jobId);
+
+      if (!mounted) return;
+      if (response.isSuccess) {
+        setState(() {
+          jobs = jobs?.copyWith(isApplied: false);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Application cancelled successfully')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to cancel application')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to cancel application')),
+      );
+      debugPrint(e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -169,18 +250,45 @@ class _JobDetailPageState extends State<JobDetailPage> {
           width: double.infinity,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: (jobs?.isApplied == true)
+                  ? (jobs?.applicationStatus == 'waiting'
+                        ? Colors.red
+                        : Colors.grey)
+                  : AppColors.primary,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            onPressed: () {},
-            child: Text(
-              "Apply Now",
-              style: TextStyle(
-                color: AppColors.background,
-                fontSize: AppFontSizes.body,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            onPressed: isLoading
+                ? null
+                : () {
+                    if (jobs?.isApplied == true) {
+                      if (jobs?.applicationStatus == 'waiting') {
+                        cancel_application();
+                      }
+                    } else {
+                      apply_job();
+                    }
+                  },
+            child: isLoading
+                ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: AppColors.background,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Text(
+                    (jobs?.isApplied == true)
+                        ? (jobs?.applicationStatus == 'waiting'
+                              ? "Cancel Application"
+                              : "Applied")
+                        : "Apply Now",
+                    style: TextStyle(
+                      color: AppColors.background,
+                      fontSize: AppFontSizes.body,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ),
       ),

@@ -26,7 +26,7 @@ class InterviewCard extends StatelessWidget {
     Map<Status, Widget> stateWidget = {
       Status.waiting: ElevatedButton(
         onPressed: () {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
           );
@@ -37,7 +37,7 @@ class InterviewCard extends StatelessWidget {
         ),
         child: Text("Waiting", style: TextStyle(color: Colors.black)),
       ),
-      Status.join: ElevatedButton(
+      Status.interview: ElevatedButton(
         onPressed: () {
           Navigator.push(
             context,
@@ -48,7 +48,7 @@ class InterviewCard extends StatelessWidget {
           backgroundColor: const Color.fromARGB(255, 23, 157, 5),
           foregroundColor: Colors.white,
         ),
-        child: Text("Join Meeting", style: TextStyle(color: Colors.white)),
+        child: Text("Interview", style: TextStyle(color: Colors.white)),
       ),
       Status.reject: ElevatedButton(
         onPressed: () {
@@ -75,6 +75,17 @@ class InterviewCard extends StatelessWidget {
           foregroundColor: const Color.fromARGB(255, 255, 255, 255),
         ),
         child: Text("View ", style: TextStyle(color: Colors.white)),
+      ),
+      Status.accepted: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.green.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          "Accepted",
+          style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+        ),
       ),
     };
 

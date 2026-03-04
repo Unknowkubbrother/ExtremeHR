@@ -140,3 +140,25 @@ def get_my_resume(db: Session = Depends(get_db), user_id: int = Depends(get_curr
     resume_dict["experience"] = [dict(row._mapping) for row in experience]
     
     return resume_dict
+
+@resume_router.get("/candidate/{user_id}", response_model=ResumeResponse, tags=["resume"])
+def get_candidate_resume(user_id: int, db: Session = Depends(get_db)):
+    sql_get_resume = text("SELECT * FROM resumes WHERE user_id = :user_id")
+    resume = db.execute(sql_get_resume, {"user_id": user_id}).first()
+    
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    resume_id = resume.id
+    
+    skills = db.execute(text("SELECT * FROM resume_skills WHERE resume_id = :resume_id"), {"resume_id": resume_id}).fetchall()
+    education = db.execute(text("SELECT * FROM resume_education WHERE resume_id = :resume_id"), {"resume_id": resume_id}).fetchall()
+    experience = db.execute(text("SELECT * FROM resume_experience WHERE resume_id = :resume_id"), {"resume_id": resume_id}).fetchall()
+    
+    resume_dict = dict(resume._mapping)
+    resume_dict["skills"] = [dict(row._mapping) for row in skills]
+    resume_dict["education"] = [dict(row._mapping) for row in education]
+    resume_dict["experience"] = [dict(row._mapping) for row in experience]
+    
+    return resume_dict
+

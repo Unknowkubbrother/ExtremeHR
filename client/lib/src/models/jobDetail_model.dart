@@ -17,6 +17,8 @@ class JobDetail {
   final int maxSalary;
 
   final DateTime postedAt;
+  final bool isApplied;
+  final String? applicationStatus;
 
   JobDetail({
     required this.id,
@@ -34,6 +36,8 @@ class JobDetail {
     required this.minSalary,
     required this.maxSalary,
     required this.postedAt,
+    this.isApplied = false,
+    this.applicationStatus,
   });
 
   JobDetail copyWith({
@@ -52,6 +56,8 @@ class JobDetail {
     int? minSalary,
     int? maxSalary,
     DateTime? postedAt,
+    bool? isApplied,
+    String? applicationStatus,
   }) {
     return JobDetail(
       id: id ?? this.id,
@@ -69,6 +75,8 @@ class JobDetail {
       minSalary: minSalary ?? this.minSalary,
       maxSalary: maxSalary ?? this.maxSalary,
       postedAt: postedAt ?? this.postedAt,
+      isApplied: isApplied ?? this.isApplied,
+      applicationStatus: applicationStatus ?? this.applicationStatus,
     );
   }
 
@@ -91,6 +99,8 @@ class JobDetail {
       postedAt: json['postedAt'] != null
           ? DateTime.parse(json['postedAt'])
           : DateTime.now(),
+      isApplied: json['is_applied'] ?? false,
+      applicationStatus: json['application_status'],
     );
   }
 }

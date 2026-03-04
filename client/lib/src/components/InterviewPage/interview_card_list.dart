@@ -1,7 +1,8 @@
 import 'package:client/src/components/InterviewPage/interview_card.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/models/interview_model.dart';
-import 'package:client/src/models/status_enum.dart';
+import 'package:client/src/services/interview_service.dart';
+import 'package:client/src/services/auth_storage.dart';
 import 'package:flutter/material.dart';
 
 class InterviewCardList extends StatefulWidget {
@@ -12,41 +13,62 @@ class InterviewCardList extends StatefulWidget {
 }
 
 class _InterviewCardListState extends State<InterviewCardList> {
-  List<InverViewCardModel> interviewCardList = [
-    InverViewCardModel(
-      id: "1",
-      state: Status.waiting,
-      title: "UX Designer",
-      company: "Google",
-    ),
-    InverViewCardModel(
-      id: "2",
-      state: Status.join,
-      title: "Software Engineer",
-      company: "Microsoft",
-    ),
-    InverViewCardModel(
-      id: "3",
-      state: Status.reject,
-      title: "Data Scientist",
-      company: "Meta",
-    ),
-    InverViewCardModel(
-      id: "4",
-      state: Status.view,
-      title: "Product Manager",
-      company: "Apple",
-    ),
-    InverViewCardModel(
-      id: "5",
-      state: Status.view,
-      title: "Project Manager",
-      company: "Amazon",
-    ),
-  ];
+  final InterviewService _interviewService = InterviewService();
+  final AuthStorage _authStorage = AuthStorage();
+
+  List<InverViewCardModel> interviewCardList = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInterviews();
+  }
+
+  Future<void> _fetchInterviews() async {
+    try {
+      final token = await _authStorage.getToken();
+      if (token != null) {
+        final interviews = await _interviewService.getInterviews(token);
+        if (mounted) {
+          setState(() {
+            interviewCardList = interviews;
+            isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            errorMessage = 'No auth token found';
+            isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          errorMessage = 'Failed to load interviews';
+          isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Expanded(child: Center(child: CircularProgressIndicator()));
+    }
+
+    if (errorMessage != null) {
+      return Expanded(child: Center(child: Text(errorMessage!)));
+    }
+
+    if (interviewCardList.isEmpty) {
+      return const Expanded(child: Center(child: Text("No interviews found")));
+    }
+
     return Expanded(
       child: ListView.separated(
         itemCount: interviewCardList.length,
