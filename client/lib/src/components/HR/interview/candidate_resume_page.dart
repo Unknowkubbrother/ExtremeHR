@@ -1,3 +1,4 @@
+import 'package:client/src/models/status_enum.dart';
 import 'package:client/src/components/MeetingPage/meeting_page.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
 import 'package:client/src/constants/app_colors.dart';
@@ -12,12 +13,14 @@ class CandidateResumePage extends StatefulWidget {
   final String candidateId;
   final String interviewId;
   final String candidateName;
+  final Status initialStatus;
 
   const CandidateResumePage({
     super.key,
     required this.candidateId,
     required this.interviewId,
     required this.candidateName,
+    required this.initialStatus,
   });
 
   @override
@@ -32,10 +35,12 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
   PersonalInformation? _resume;
   bool _isLoading = true;
   bool _isUpdating = false;
+  late Status _currentStatus;
 
   @override
   void initState() {
     super.initState();
+    _currentStatus = widget.initialStatus;
     _loadResume();
   }
 
@@ -70,6 +75,7 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
       if (token != null) {
         await _interviewService.rejectInterview(token, widget.interviewId);
         if (mounted) {
+          setState(() => _currentStatus = Status.reject);
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Candidate rejected')));
@@ -96,6 +102,7 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
       if (token != null) {
         await _interviewService.interviewCandidate(token, widget.interviewId);
         if (mounted) {
+          setState(() => _currentStatus = Status.interview);
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Interview scheduled')));
@@ -135,6 +142,12 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        // actions: [
+        //   Padding(
+        //     padding: const EdgeInsets.only(right: 16),
+        //     child: StatusBadge(status: _currentStatus),
+        //   ),
+        // ],
       ),
       body: _isLoading
           ? const Center(
@@ -182,52 +195,61 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
               ],
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                onPressed: _isUpdating || _resume == null
-                    ? null
-                    : () => _interview(),
-                child: Text(
-                  "Interview",
-                  style: TextStyle(
-                    fontSize: AppFontSizes.body,
-                    fontWeight: FontWeight.bold,
+      floatingActionButton:
+          (_currentStatus != Status.waiting && _currentStatus != Status.view)
+          ? null
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: _isUpdating || _resume == null
+                          ? null
+                          : () => _interview(),
+                      child: const Text(
+                        "Interview",
+                        style: TextStyle(
+                          fontSize: AppFontSizes.body,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: _isUpdating || _resume == null
+                          ? null
+                          : () => _reject(),
+                      child: const Text(
+                        "Reject",
+                        style: TextStyle(
+                          fontSize: AppFontSizes.body,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade100,
-                  foregroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                onPressed: _isUpdating || _resume == null
-                    ? null
-                    : () => _reject(),
-                child: Text(
-                  "Reject",
-                  style: TextStyle(
-                    fontSize: AppFontSizes.body,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

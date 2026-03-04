@@ -124,6 +124,7 @@ class _CandidateListPageState extends State<CandidateListPage> {
                   candidateId: candidate.candidateId,
                   interviewId: candidate.id,
                   candidateName: candidate.candidateName,
+                  initialStatus: candidate.state,
                 ),
               ),
             );
