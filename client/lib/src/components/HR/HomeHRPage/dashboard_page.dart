@@ -63,7 +63,7 @@ class _DashBoardState extends State<DashBoard> {
               ),
               const SizedBox(width: 12),
               _buildStatCard(
-                title: "Interviews",
+                title: "Candidates",
                 value: _isLoading
                     ? "..."
                     : _stats?.interviews.toString() ?? "0",

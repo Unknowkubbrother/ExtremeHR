@@ -1,4 +1,4 @@
-import 'package:client/src/components/HR/JobPage/job_detail_hr_page.dart';
+import 'package:client/src/components/HR/interview/candidate_list_page.dart';
 import 'package:client/src/components/HomePage/card_list.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
@@ -90,7 +90,10 @@ class _InterviewJobListPageState extends State<InterviewJobListPage> {
             await Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => JobDetailHRPage(jobId: job.id),
+                builder: (context) => CandidateListPage(
+                  jobId: job.id.toString(),
+                  jobTitle: job.title,
+                ),
               ),
             );
             _loadJobs();
@@ -119,9 +122,15 @@ class _InterviewJobListPageState extends State<InterviewJobListPage> {
                 AppColors.primary,
               ),
               const SizedBox(height: 4),
-              _buildTagBox("${1}/${2} Approved", AppColors.positiveColor),
+              _buildTagBox(
+                "${job.approvedCount}/${job.headcount} Approved",
+                AppColors.positiveColor,
+              ),
               const SizedBox(height: 4),
-              _buildTagBox("${1}/${2} Waiting", AppColors.textPrimaryTo),
+              _buildTagBox(
+                "${job.waitingCount}/${job.candidateCount} Waiting",
+                AppColors.textPrimaryTo,
+              ),
             ],
           ),
         );

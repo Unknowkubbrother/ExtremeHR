@@ -53,4 +53,22 @@ class ResumeService {
       throw Exception('Failed to save resume: ${response.body}');
     }
   }
+
+  Future<PersonalInformation> getCandidateResume(
+    String token,
+    int candidateId,
+  ) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/resume/candidate/$candidateId'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      return PersonalInformation.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to get candidate resume');
+    }
+  }
 }

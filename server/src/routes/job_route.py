@@ -53,5 +53,13 @@ def get_job_detail(job_id: int, db: Session = Depends(get_db), current_user_id: 
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    return dict(job._mapping)
+    job_dict = dict(job._mapping)
+    
+    sql_check_applied = text("SELECT id, status FROM interviews WHERE user_id = :user_id AND job_id = :job_id AND is_active = true")
+    applied = db.execute(sql_check_applied, {"user_id": current_user_id, "job_id": job_id}).first()
+    
+    job_dict["is_applied"] = bool(applied)
+    job_dict["application_status"] = applied.status if applied else None
+
+    return job_dict
 

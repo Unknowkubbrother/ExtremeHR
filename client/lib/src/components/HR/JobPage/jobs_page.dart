@@ -135,33 +135,37 @@ class _JobsHRPageState extends State<JobsHRPage> {
                 style: TextStyle(fontSize: AppFontSizes.caption),
               ),
               const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.people, size: 18, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      "${job.candidateCount} candidates",
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: AppFontSizes.caption,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
+              _buildTagBox(
+                "${job.candidateCount} candidates",
+                AppColors.primary,
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildTagBox(String str, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.people, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(
+            str,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: AppFontSizes.caption, color: color),
+          ),
+        ],
+      ),
     );
   }
 }
