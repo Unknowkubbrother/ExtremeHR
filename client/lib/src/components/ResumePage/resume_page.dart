@@ -2,6 +2,7 @@ import 'package:client/src/components/ResumePage/personal_info_card.dart';
 import 'package:client/src/components/ResumePage/skills_card.dart';
 import 'package:client/src/components/ResumePage/education_card.dart';
 import 'package:client/src/components/ResumePage/exprience_card.dart';
+import 'package:client/src/components/ResumePage/project_card.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/models/personal_info_model.dart';
@@ -24,6 +25,7 @@ class _ResumePageState extends State<ResumePage> {
       GlobalKey<EducationCardState>();
   final GlobalKey<ExperienceCardState> _experienceKey =
       GlobalKey<ExperienceCardState>();
+  final GlobalKey<ProjectCardState> _projectKey = GlobalKey<ProjectCardState>();
 
   final ResumeService _resumeService = ResumeService();
   final AuthStorage _authStorage = AuthStorage();
@@ -39,6 +41,7 @@ class _ResumePageState extends State<ResumePage> {
     skills: [],
     education: [],
     experience: [],
+    projects: [],
   );
 
   @override
@@ -58,6 +61,7 @@ class _ResumePageState extends State<ResumePage> {
     _skillsKey.currentState?.resetData();
     _educationKey.currentState?.resetData();
     _experienceKey.currentState?.resetData();
+    _projectKey.currentState?.resetData();
     setState(() {
       _isPersonalInfoEditing = false;
     });
@@ -69,15 +73,18 @@ class _ResumePageState extends State<ResumePage> {
     final updatedEducation = _educationKey.currentState?.getUpdatedEducation();
     final updatedExperience = _experienceKey.currentState
         ?.getUpdatedExperience();
+    final updatedProjects = _projectKey.currentState?.getUpdatedProjects();
 
     if (updatedInfo != null &&
         updatedSkills != null &&
         updatedEducation != null &&
-        updatedExperience != null) {
+        updatedExperience != null &&
+        updatedProjects != null) {
       final newData = updatedInfo.copyWith(
         skills: updatedSkills,
         education: updatedEducation,
         experience: updatedExperience,
+        projects: updatedProjects,
       );
       _saveResume(newData);
     }
@@ -232,6 +239,11 @@ class _ResumePageState extends State<ResumePage> {
             ExperienceCard(
               key: _experienceKey,
               experience: _personalData.experience,
+              isEditing: _isPersonalInfoEditing,
+            ),
+            ProjectCard(
+              key: _projectKey,
+              projects: _personalData.projects,
               isEditing: _isPersonalInfoEditing,
             ),
             if (_isLoading)

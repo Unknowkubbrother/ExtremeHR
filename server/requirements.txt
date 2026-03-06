@@ -16,3 +16,9 @@ langchain-chroma
 chromadb
 FlagEmbedding
 transformers<5.0.0
+
+langchain-openai
+langchain-community
+pypdf
+openai
+pydantic

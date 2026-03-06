@@ -31,6 +31,7 @@ class Resume(Base):
     skills = relationship("Skill", back_populates="resume", cascade="all, delete-orphan")
     education = relationship("Education", back_populates="resume", cascade="all, delete-orphan")
     experience = relationship("Experience", back_populates="resume", cascade="all, delete-orphan")
+    projects = relationship("Project", back_populates="resume", cascade="all, delete-orphan")
 
 class Skill(Base):
     __tablename__ = "resume_skills"
@@ -77,3 +78,15 @@ class Experience(Base):
     description = Column(Text, nullable=True)
 
     resume = relationship("Resume", back_populates="experience")
+
+class Project(Base):
+    __tablename__ = "resume_projects"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    resume_id = Column(BigInteger, ForeignKey("resumes.id"), nullable=False)
+    
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+
+    resume = relationship("Resume", back_populates="projects")
+

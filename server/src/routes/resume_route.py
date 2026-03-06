@@ -44,6 +44,9 @@ def create_or_update_resume(resume_data: ResumeCreate, db: Session = Depends(get
         db.execute(text("DELETE FROM resume_skills WHERE resume_id = :resume_id"), {"resume_id": resume_id})
         db.execute(text("DELETE FROM resume_education WHERE resume_id = :resume_id"), {"resume_id": resume_id})
         db.execute(text("DELETE FROM resume_experience WHERE resume_id = :resume_id"), {"resume_id": resume_id})
+        
+        # Clear projects
+        db.execute(text("DELETE FROM resume_projects WHERE resume_id = :resume_id"), {"resume_id": resume_id})
     else:
         # Create new resume
         sql_insert_resume = text("""
@@ -112,6 +115,15 @@ def create_or_update_resume(resume_data: ResumeCreate, db: Session = Depends(get
                 "end_month": exp.end_month,
                 "description": exp.description
             })
+            
+    if resume_data.projects:
+        sql_insert_project = text("INSERT INTO resume_projects (resume_id, title, description) VALUES (:resume_id, :title, :description) RETURNING id")
+        for project in resume_data.projects:
+            db.execute(sql_insert_project, {
+                "resume_id": resume_id,
+                "title": project.title,
+                "description": project.description
+            })
 
     db.commit()
     
@@ -133,11 +145,15 @@ def get_my_resume(db: Session = Depends(get_db), user_id: int = Depends(get_curr
     education = db.execute(text("SELECT * FROM resume_education WHERE resume_id = :resume_id"), {"resume_id": resume_id}).fetchall()
     experience = db.execute(text("SELECT * FROM resume_experience WHERE resume_id = :resume_id"), {"resume_id": resume_id}).fetchall()
     
+    projects = db.execute(text("SELECT * FROM resume_projects WHERE resume_id = :resume_id"), {"resume_id": resume_id}).fetchall()
+    projects_list = [dict(p._mapping) for p in projects]
+    
     # Construct response dictionary
     resume_dict = dict(resume._mapping)
     resume_dict["skills"] = [dict(row._mapping) for row in skills]
     resume_dict["education"] = [dict(row._mapping) for row in education]
     resume_dict["experience"] = [dict(row._mapping) for row in experience]
+    resume_dict["projects"] = projects_list
     
     return resume_dict
 
@@ -155,10 +171,14 @@ def get_candidate_resume(user_id: int, db: Session = Depends(get_db)):
     education = db.execute(text("SELECT * FROM resume_education WHERE resume_id = :resume_id"), {"resume_id": resume_id}).fetchall()
     experience = db.execute(text("SELECT * FROM resume_experience WHERE resume_id = :resume_id"), {"resume_id": resume_id}).fetchall()
     
+    projects = db.execute(text("SELECT * FROM resume_projects WHERE resume_id = :resume_id"), {"resume_id": resume_id}).fetchall()
+    projects_list = [dict(p._mapping) for p in projects]
+    
     resume_dict = dict(resume._mapping)
     resume_dict["skills"] = [dict(row._mapping) for row in skills]
     resume_dict["education"] = [dict(row._mapping) for row in education]
     resume_dict["experience"] = [dict(row._mapping) for row in experience]
+    resume_dict["projects"] = projects_list
     
     return resume_dict
 
