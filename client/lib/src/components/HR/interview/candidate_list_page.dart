@@ -116,6 +116,8 @@ class _CandidateListPageState extends State<CandidateListPage> {
           icon: Icons.person_outline,
           id: candidate.id,
           state: candidate.state,
+          isHR: true,
+          onRefresh: _loadCandidates,
           action: () async {
             await Navigator.push(
               context,

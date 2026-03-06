@@ -143,4 +143,23 @@ class JobServices {
       throw Exception('Failed to search jobs');
     }
   }
+
+  Future<List<RecentApplyResponse>> getHRRecentApply(String token) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.get(
+      Uri.parse('$apiUrl/jobs_hr/hr/recent'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonList = jsonDecode(response.body);
+      return jsonList
+          .map((json) => RecentApplyResponse.fromJson(json))
+          .toList();
+    } else {
+      throw Exception('Failed to get HR recent apply');
+    }
+  }
 }

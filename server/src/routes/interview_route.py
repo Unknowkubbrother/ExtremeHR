@@ -127,3 +127,20 @@ def interview_candidate(interview_id: int, db: Session = Depends(get_db), hr_use
 
     return ApplyJobResponse(isSuccess=True)
 
+@interview_router.post("/hr/interview/{interview_id}/end", response_model=ApplyJobResponse, tags=["Interview"])
+def end_interview(interview_id: int, db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):
+    # Verify HR owns the job for this interview
+    sql_check = text("""
+        SELECT i.id FROM interviews i
+        JOIN jobs j ON i.job_id = j.id
+        WHERE i.id = :interview_id AND j.user_id = :hr_user_id
+    """)
+    auth_check = db.execute(sql_check, {"interview_id": interview_id, "hr_user_id": hr_user_id}).first()
+    if not auth_check:
+        raise HTTPException(status_code=403, detail="Not authorized or interview not found")
+
+    sql_update = text("UPDATE interviews SET status = :status WHERE id = :interview_id")
+    db.execute(sql_update, {"status": ApplyStatusEnum.VIEWED.value, "interview_id": interview_id})
+    db.commit()
+
+    return ApplyJobResponse(isSuccess=True)

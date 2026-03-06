@@ -1,6 +1,7 @@
 import 'package:client/src/components/HR/HomeHRPage/main_navigation_page.dart';
 import 'package:client/src/components/shared/main_button.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
+import 'package:client/src/components/shared/confirm.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/models/jobModify_model.dart';
@@ -22,6 +23,15 @@ class _JobEditPageState extends State<JobEditPage> {
   final JobServices _jobService = JobServices();
   final AuthStorage _authStorage = AuthStorage();
   final _formKey = GlobalKey<FormState>();
+
+  final ConfirmDialog _deleteDialog = ConfirmDialog(
+    title: "Delete this job?",
+    content: "This action cannot be undone.",
+    confirmText: "Delete",
+    cancelText: "Cancel",
+    confirmColor: Colors.red,
+    cancelColor: AppColors.textPrimaryTo,
+  );
 
   bool _isLoading = false; // ใช้กับ Save/Create
   bool _isDeleting = false;
@@ -121,85 +131,7 @@ class _JobEditPageState extends State<JobEditPage> {
     if (widget.job == null) return;
 
     // confirm
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      "Delete this job?",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    icon: const Icon(Icons.close),
-                    color: AppColors.textSecondary,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "This action cannot be undone.",
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textPrimaryTo,
-                        side: BorderSide(
-                          color: Colors.black.withValues(alpha: 0.12),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("Cancel"),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text("Delete"),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final confirm = await _deleteDialog.show(context);
 
     if (confirm != true) return;
 

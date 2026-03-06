@@ -1,5 +1,5 @@
+import 'package:client/src/components/shared/confirm.dart';
 import 'package:client/src/models/status_enum.dart';
-import 'package:client/src/components/MeetingPage/meeting_page.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
@@ -31,6 +31,24 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
   final ResumeService _resumeService = ResumeService();
   final InterviewService _interviewService = InterviewService();
   final AuthStorage _authService = AuthStorage();
+
+  final ConfirmDialog _rejectDialog = ConfirmDialog(
+    title: "Reject this candidate?",
+    content: "This action cannot be undone.",
+    confirmText: "Reject",
+    cancelText: "Cancel",
+    confirmColor: Colors.red,
+    cancelColor: AppColors.textPrimaryTo,
+  );
+
+  final ConfirmDialog _interviewDialog = ConfirmDialog(
+    title: "Interview this candidate?",
+    content: "This action cannot be undone.",
+    confirmText: "Interview",
+    cancelText: "Cancel",
+    confirmColor: Colors.green,
+    cancelColor: AppColors.textPrimaryTo,
+  );
 
   PersonalInformation? _resume;
   bool _isLoading = true;
@@ -69,6 +87,9 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
   }
 
   Future<void> _reject() async {
+    final result = await _rejectDialog.show(context);
+    if (result != true) return;
+
     setState(() => _isUpdating = true);
     try {
       final token = await _authService.getToken();
@@ -96,6 +117,9 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
   }
 
   Future<void> _interview() async {
+    final result = await _interviewDialog.show(context);
+    if (result != true) return;
+
     setState(() => _isUpdating = true);
     try {
       final token = await _authService.getToken();
@@ -106,12 +130,7 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Interview scheduled')));
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MeetingPage(id: widget.interviewId),
-            ),
-          );
+          Navigator.pop(context);
         }
       }
     } catch (e) {
