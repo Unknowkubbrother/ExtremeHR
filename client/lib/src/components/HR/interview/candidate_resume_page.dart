@@ -1,6 +1,5 @@
 import 'package:client/src/components/shared/confirm.dart';
 import 'package:client/src/models/status_enum.dart';
-import 'package:client/src/components/MeetingPage/meeting_page.dart';
 import 'package:client/src/components/ResumePage/card_content.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
@@ -131,12 +130,7 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Interview scheduled')));
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MeetingPage(id: widget.interviewId),
-            ),
-          );
+          Navigator.pop(context);
         }
       }
     } catch (e) {

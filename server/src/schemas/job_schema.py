@@ -65,3 +65,9 @@ class JobStats(BaseModel):
     active_jobs: int
     interviews: int
     approved: int
+
+class recentApplyResponse(BaseModel):
+    id: int
+    title: str
+    candidate_name: str
+    date_at: datetime

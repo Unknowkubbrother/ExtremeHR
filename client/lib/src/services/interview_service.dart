@@ -111,4 +111,20 @@ class InterviewService {
       throw Exception(jsonDecode(response.body)['detail']);
     }
   }
+
+  Future<ApplyJobModel> endInterview(String token, String interviewId) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.post(
+      Uri.parse('$apiUrl/interview/hr/interview/$interviewId/end'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      return ApplyJobModel.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception(jsonDecode(response.body)['detail']);
+    }
+  }
 }

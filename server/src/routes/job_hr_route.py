@@ -4,7 +4,7 @@ from sqlalchemy import text
 from typing import List
 
 from src.databases.db_connect import get_db
-from src.schemas.job_schema import JobDetailResponse, JobCreate, JobUpdate, JobHRResponse, JobStats
+from src.schemas.job_schema import JobDetailResponse, JobCreate, JobUpdate, JobHRResponse, JobStats, recentApplyResponse
 from src.enums.apply_status_enum import ApplyStatusEnum
 from src.utils.auth_utils import get_current_user_id
 from src.routes.job_route import require_hr_role
@@ -113,3 +113,16 @@ def get_hr_stats(db: Session = Depends(get_db), hr_user_id: int = Depends(requir
     """)
     stats = db.execute(sql_stats, {"hr_user_id": hr_user_id}).first()
     return JobStats(**stats._mapping)
+
+@job_hr_router.get("/hr/recent", response_model=List[recentApplyResponse], tags=["jobs hr"])
+def get_hr_recent_jobs(db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):
+    sql_get_recent = text(f"""
+        SELECT i.id, j.title, u.username as candidate_name, i.created_at as date_at 
+        FROM interviews i
+        JOIN jobs j ON i.job_id = j.id
+        JOIN users u ON i.user_id = u.id
+        WHERE j.user_id = :hr_user_id AND i.is_active = true
+        ORDER BY i.created_at DESC
+    """)
+    results = db.execute(sql_get_recent, {"hr_user_id": hr_user_id}).fetchall()
+    return [dict(row._mapping) for row in results]

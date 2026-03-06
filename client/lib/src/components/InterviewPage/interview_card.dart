@@ -1,3 +1,4 @@
+import 'package:client/src/components/HR/MeetingPage/meeting_page.dart';
 import 'package:client/src/components/MeetingPage/meeting_page.dart';
 import 'package:client/src/components/SummaryPage/summary_page.dart';
 import 'package:client/src/components/shared/status_badge.dart';
@@ -14,6 +15,8 @@ class InterviewCard extends StatelessWidget {
     required this.action,
     required this.state,
     required this.id,
+    this.isHR = false,
+    this.onRefresh,
   });
 
   final Status state;
@@ -21,18 +24,29 @@ class InterviewCard extends StatelessWidget {
   final IconData icon;
   final Widget child;
   final VoidCallback action;
+  final bool isHR;
+  final VoidCallback? onRefresh;
 
-  void _handleBadgeTap(BuildContext context) {
+  void _handleBadgeTap(BuildContext context) async {
     if (state == Status.interview) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
-      );
+      if (isHR) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => HRMeetingPage(id: id)),
+        );
+      } else {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => MeetingPage(id: id)),
+        );
+      }
+      if (onRefresh != null) onRefresh!();
     } else if (state == Status.view || state == Status.accepted) {
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const SummaryPage()),
       );
+      if (onRefresh != null) onRefresh!();
     }
   }
 

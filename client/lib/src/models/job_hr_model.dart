@@ -64,3 +64,35 @@ class JobStats {
     );
   }
 }
+
+class RecentApplyResponse {
+  final int id;
+  final String title;
+  final String candidateName;
+  final DateTime dateAt;
+
+  RecentApplyResponse({
+    required this.id,
+    required this.title,
+    required this.candidateName,
+    required this.dateAt,
+  });
+
+  factory RecentApplyResponse.fromJson(Map<String, dynamic> json) {
+    return RecentApplyResponse(
+      id: json['id'],
+      title: json['title'],
+      candidateName: json['candidate_name'],
+      dateAt: DateTime.parse(json['date_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'candidate_name': candidateName,
+      'date_at': dateAt,
+    };
+  }
+}
