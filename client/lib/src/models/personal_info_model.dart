@@ -1,5 +1,6 @@
 import 'package:client/src/models/education_model.dart';
 import 'package:client/src/models/experience_model.dart';
+import 'package:client/src/models/project_model.dart';
 
 class PersonalInformation {
   final String fullName;
@@ -10,6 +11,7 @@ class PersonalInformation {
   final List<String> skills;
   final List<Education> education;
   final List<Experience> experience;
+  final List<Project> projects;
 
   PersonalInformation({
     required this.fullName,
@@ -20,6 +22,7 @@ class PersonalInformation {
     required this.skills,
     required this.education,
     required this.experience,
+    required this.projects,
   });
 
   PersonalInformation copyWith({
@@ -31,6 +34,7 @@ class PersonalInformation {
     List<String>? skills,
     List<Education>? education,
     List<Experience>? experience,
+    List<Project>? projects,
   }) {
     return PersonalInformation(
       fullName: fullName ?? this.fullName,
@@ -41,6 +45,7 @@ class PersonalInformation {
       skills: skills ?? this.skills,
       education: education ?? this.education,
       experience: experience ?? this.experience,
+      projects: projects ?? this.projects,
     );
   }
 
@@ -54,6 +59,7 @@ class PersonalInformation {
       'skills': skills.map((s) => {'name': s}).toList(),
       'education': education.map((e) => e.toJson()).toList(),
       'experience': experience.map((e) => e.toJson()).toList(),
+      'projects': projects.map((p) => p.toJson()).toList(),
     };
   }
 
@@ -72,6 +78,9 @@ class PersonalInformation {
           .toList(),
       experience: (json['experience'] as List? ?? [])
           .map((e) => Experience.fromJson(e))
+          .toList(),
+      projects: (json['projects'] as List? ?? [])
+          .map((p) => Project.fromJson(p))
           .toList(),
     );
   }

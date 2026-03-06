@@ -47,6 +47,17 @@ class ExperienceResponse(ExperienceBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
+class ProjectBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+
+class ProjectCreate(ProjectBase):
+    pass
+
+class ProjectResponse(ProjectBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
 class ResumeBase(BaseModel):
     full_name: str
     age: Optional[int] = None
@@ -58,13 +69,17 @@ class ResumeBase(BaseModel):
     @classmethod
     def validate_phone(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and not v.isdigit():
-            raise ValueError("Phone must contain only numbers")
+            # บาง Resume อาจจะมีเครื่องหมาย + หรือ - ติดมา 
+            # แต่ถ้าต้องการให้เป็นตัวเลขล้วนตาม Schema เดิม:
+            v_clean = re.sub(r'[^0-9]', '', v)
+            return v_clean
         return v
 
 class ResumeCreate(ResumeBase):
     skills: List[SkillCreate] = []
     education: List[EducationCreate] = []
     experience: List[ExperienceCreate] = []
+    projects: List[ProjectCreate] = []
 
 class ResumeResponse(ResumeBase):
     id: int
@@ -72,5 +87,6 @@ class ResumeResponse(ResumeBase):
     skills: List[SkillResponse] = []
     education: List[EducationResponse] = []
     experience: List[ExperienceResponse] = []
+    projects: List[ProjectResponse] = []
     
     model_config = ConfigDict(from_attributes=True)

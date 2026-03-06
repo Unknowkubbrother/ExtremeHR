@@ -28,6 +28,7 @@ class ResumeService {
         skills: [],
         education: [],
         experience: [],
+        projects: [],
       );
     } else {
       throw Exception('Failed to load resume: ${response.body}');
