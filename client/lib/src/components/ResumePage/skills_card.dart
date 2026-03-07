@@ -26,6 +26,14 @@ class SkillsCardState extends State<SkillsCard> {
     _initControllers();
   }
 
+  @override
+  void didUpdateWidget(covariant SkillsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.skills != widget.skills) {
+      _initControllers();
+    }
+  }
+
   void _initControllers() {
     _controllers = widget.skills
         .map((skill) => TextEditingController(text: skill))
