@@ -27,6 +27,14 @@ class ExperienceCardState extends State<ExperienceCard> {
     _initControllers();
   }
 
+  @override
+  void didUpdateWidget(covariant ExperienceCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.experience != widget.experience) {
+      _initControllers();
+    }
+  }
+
   void resetData() {
     _initControllers();
   }

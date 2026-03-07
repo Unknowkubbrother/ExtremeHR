@@ -27,6 +27,14 @@ class ProjectCardState extends State<ProjectCard> {
     _initControllers();
   }
 
+  @override
+  void didUpdateWidget(covariant ProjectCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.projects != widget.projects) {
+      _initControllers();
+    }
+  }
+
   void resetData() {
     _initControllers();
   }

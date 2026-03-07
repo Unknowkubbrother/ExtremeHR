@@ -22,3 +22,5 @@ langchain-community
 pypdf
 openai
 pydantic
+
+pathlib

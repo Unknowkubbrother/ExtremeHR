@@ -55,6 +55,25 @@ class ResumeService {
     }
   }
 
+  Future<Map<String, dynamic>> uploadResume(
+    String token,
+    String filePath,
+  ) async {
+    final uri = Uri.parse('$_baseUrl/resume/upload');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Upload failed: ${response.body}');
+    }
+  }
+
   Future<PersonalInformation> getCandidateResume(
     String token,
     int candidateId,

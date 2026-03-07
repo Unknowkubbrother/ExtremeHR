@@ -26,3 +26,6 @@ app.include_router(job_hr_route.job_hr_router, prefix="/jobs_hr")
 app.include_router(search_route.search_router, prefix="/search")
 app.include_router(interview_route.interview_router, prefix="/interview")
 # uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+# alembic revision --autogenerate -m "init"
+# alembic upgrade head
+

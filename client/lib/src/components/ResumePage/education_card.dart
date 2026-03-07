@@ -28,6 +28,14 @@ class EducationCardState extends State<EducationCard> {
     _initControllers();
   }
 
+  @override
+  void didUpdateWidget(covariant EducationCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.education != widget.education) {
+      _initControllers();
+    }
+  }
+
   void resetData() {
     _initControllers();
   }
