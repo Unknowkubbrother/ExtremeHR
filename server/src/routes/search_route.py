@@ -136,10 +136,24 @@ def search(
         k=20,
     )
 
+    if not results:
+        return {"message": []}
+
+    job_ids = list(set(int(doc.metadata["job_id"]) for doc, _ in results))
+    sql_check = text("SELECT id, job_fields FROM jobs WHERE id = ANY(:job_ids)")
+    db_jobs = db.execute(sql_check, {"job_ids": job_ids}).fetchall()
+    job_fields_map = {row.id: row.job_fields for row in db_jobs}
+
     seen_jobs = {}
     import math
     for doc, distance in results:
-        job_id = doc.metadata["job_id"]
+        job_id = int(doc.metadata["job_id"])
+        
+        if search_request.filter and search_request.filter != "All":
+            j_fields = job_fields_map.get(job_id, [])
+            if search_request.filter not in j_fields:
+                continue
+
         similarity = 1.0 - (distance / 2.0)
         if math.isnan(similarity):
             similarity = 0.0
@@ -154,4 +168,4 @@ def search(
 
     output = sorted(seen_jobs.values(), key=lambda x: x["similarity"], reverse=True)
 
-    return {"message": output}
+    return {"message": output[:20]}

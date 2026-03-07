@@ -18,8 +18,21 @@ class _HomeJobPageState extends State<HomeJobPage> {
   final _jobServices = JobServices();
   List<int>? _searchJobIds;
   bool _isSearching = false;
+  String _currentFilter = 'All';
+  String _currentQuery = '';
+
+  void _onFilterChanged(String filter) {
+    setState(() {
+      _currentFilter = filter;
+    });
+    if (_currentQuery.isNotEmpty) {
+      _search(_currentQuery);
+    }
+  }
 
   void _search(String q) async {
+    _currentQuery = q;
+
     if (q.isEmpty) {
       setState(() {
         _searchJobIds = null;
@@ -34,7 +47,11 @@ class _HomeJobPageState extends State<HomeJobPage> {
       final token = await _storage.getToken();
       if (token == null) return;
 
-      final results = await _jobServices.searchJobs(token, q);
+      final results = await _jobServices.searchJobs(
+        token,
+        q,
+        filter: _currentFilter,
+      );
       if (!mounted) return;
 
       setState(() {
@@ -59,18 +76,16 @@ class _HomeJobPageState extends State<HomeJobPage> {
           child: SearchJobBar(onSearch: _search),
         ),
         const SizedBox(height: 16),
-        if (_searchJobIds == null) ...[
-          Recommend(),
-          const SizedBox(height: 16),
-          Filter(),
-          const SizedBox(height: 16),
-        ],
+        Filter(onChanged: _onFilterChanged),
+        const SizedBox(height: 16),
+        if (_searchJobIds == null) ...[Recommend(), const SizedBox(height: 16)],
         if (_isSearching)
           const Expanded(child: Center(child: CircularProgressIndicator()))
         else
           JobCardList(
-            key: ValueKey(_searchJobIds),
+            key: ValueKey('$_searchJobIds-$_currentFilter'),
             filterJobIds: _searchJobIds,
+            filter: _currentFilter,
           ),
       ],
     );
