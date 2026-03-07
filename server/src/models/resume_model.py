@@ -22,6 +22,7 @@ class Resume(Base):
     age = Column(Integer, nullable=True)
     phone = Column(String(20), nullable=True)
     email = Column(String(255), nullable=True)
+    pdf_path = Column(String(255), nullable=True)
     address = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
