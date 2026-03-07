@@ -5,11 +5,11 @@ from sqlalchemy import text
 from typing import List
 import uuid
 import shutil
+import asyncio
 
 from src.databases.db_connect import get_db
 from src.schemas.resume_schema import ResumeCreate, ResumeResponse , ResumeResult
 from src.utils.auth_utils import get_current_user_id
-
 from src.utils.llm_utils import extract_text_from_pdf, model_to_prompt_string , extract_to_json
 
 resume_router = APIRouter()
@@ -194,29 +194,14 @@ def get_candidate_resume(user_id: int, db: Session = Depends(get_db)):
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-@resume_router.post("/upload")
-async def upload_pdf(file: UploadFile = File(...)):
-    if file.content_type != "application/pdf":
-        raise HTTPException(status_code=400, detail="กรุณาอัปโหลดไฟล์ PDF เท่านั้น")
 
-    safe_name = f"{uuid.uuid4()}_{file.filename}"
-    file_path = UPLOAD_DIR / safe_name
-
-    try:
-        with file_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception:
-        raise HTTPException(status_code=500, detail="บันทึกไฟล์ไม่สำเร็จ")
-    finally:
-        file.file.close()
-
-
+def _process_resume_sync(safe_name: str) -> dict:
     resume_text = extract_text_from_pdf(safe_name.split('.pdf')[0])
-    
+
     schema_str = model_to_prompt_string(ResumeResult)
 
     resume_text = resume_text[:25000]
-    
+
     prompt_template = f"""
 Extract precise candidate data from the resume text and return ONLY raw JSON.
 
@@ -250,9 +235,28 @@ Extract precise candidate data from the resume text and return ONLY raw JSON.
 # {resume_text}
 # """
 
-    result = extract_to_json(prompt_template)
+    return extract_to_json(prompt_template)
+
+
+@resume_router.post("/upload")
+async def upload_resume(file: UploadFile = File(...)):
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="กรุณาอัปโหลดไฟล์ PDF เท่านั้น")
+
+    safe_name = f"{uuid.uuid4()}_{file.filename}"
+    file_path = UPLOAD_DIR / safe_name
+
+    try:
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception:
+        raise HTTPException(status_code=500, detail="บันทึกไฟล์ไม่สำเร็จ")
+    finally:
+        file.file.close()
+
+    result = await asyncio.to_thread(_process_resume_sync, safe_name)
 
     if not result:
         raise HTTPException(status_code=500, detail="ไม่สามารถสกัดข้อมูลจาก resume ได้")
-    
+
     return result
