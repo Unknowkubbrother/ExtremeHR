@@ -8,7 +8,8 @@ import 'package:client/src/models/jobList_model.dart';
 
 class JobCardList extends StatefulWidget {
   final List<int>? filterJobIds;
-  const JobCardList({super.key, this.filterJobIds});
+  final String? filter;
+  const JobCardList({super.key, this.filterJobIds, this.filter});
 
   @override
   State<JobCardList> createState() => _JobCardListState();
@@ -23,7 +24,7 @@ class _JobCardListState extends State<JobCardList> {
     try {
       final token = await storage.getToken();
 
-      final response = await jobServices.getJobs(token!);
+      final response = await jobServices.getJobs(token!, filter: widget.filter);
 
       if (!mounted) return;
       setState(() {
@@ -45,6 +46,17 @@ class _JobCardListState extends State<JobCardList> {
   void initState() {
     super.initState();
     getJobs();
+  }
+
+  @override
+  void didUpdateWidget(JobCardList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.filter != widget.filter ||
+        oldWidget.filterJobIds != widget.filterJobIds) {
+      if (oldWidget.filter != widget.filter && widget.filterJobIds == null) {
+        getJobs();
+      }
+    }
   }
 
   List<JobListItem> get _displayedJobs {

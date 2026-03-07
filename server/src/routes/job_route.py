@@ -17,15 +17,21 @@ def require_hr_role(user_id: int = Depends(get_current_user_id), db: Session = D
 job_router = APIRouter()
 
 @job_router.get("/", response_model=List[JobListItemResponse], tags=["jobs"])
-def get_jobs(db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
-    sql_get_jobs = text("""
+def get_jobs(filter: str = None, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user_id)):
+    query = """
         SELECT j.id, j.title, COALESCE(c.name, '-') as company, COALESCE(c.location, '-') as location, j."maxSalary" as salary 
         FROM jobs j
         JOIN users u ON j.user_id = u.id
         LEFT JOIN companies c ON u.id = c.user_id
         WHERE j.is_active = true
-    """)
-    results = db.execute(sql_get_jobs).fetchall()
+    """
+    params = {}
+    if filter and filter != "All":
+        query += " AND :filter = ANY(j.job_fields)"
+        params["filter"] = filter
+        
+    sql_get_jobs = text(query)
+    results = db.execute(sql_get_jobs, params).fetchall()
     
     jobs_list = [
         {

@@ -7,10 +7,14 @@ import 'package:client/src/models/jobDetail_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class JobServices {
-  Future<List<JobListItem>> getJobs(String token) async {
+  Future<List<JobListItem>> getJobs(String token, {String? filter}) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    var url = '$apiUrl/jobs/';
+    if (filter != null && filter != "All") {
+      url += '?filter=${Uri.encodeComponent(filter)}';
+    }
     final response = await http.get(
-      Uri.parse('$apiUrl/jobs/'),
+      Uri.parse(url),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -125,16 +129,23 @@ class JobServices {
 
   Future<List<Map<String, dynamic>>> searchJobs(
     String token,
-    String query,
-  ) async {
+    String query, {
+    String? filter,
+  }) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+
+    final Map<String, dynamic> body = {'query': query};
+    if (filter != null && filter != "All") {
+      body['filter'] = filter;
+    }
+
     final response = await http.post(
       Uri.parse('$apiUrl/search/'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-      body: jsonEncode({'query': query}),
+      body: jsonEncode(body),
     );
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);

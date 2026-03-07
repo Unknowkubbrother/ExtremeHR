@@ -3,7 +3,8 @@ import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:flutter/material.dart';
 
 class Filter extends StatefulWidget {
-  const Filter({super.key});
+  final void Function(String filter)? onChanged;
+  const Filter({super.key, this.onChanged});
 
   @override
   State<Filter> createState() => _FilterState();
@@ -41,6 +42,9 @@ class _FilterState extends State<Filter> {
                 setState(() {
                   _selectedIndex = index;
                 });
+                if (widget.onChanged != null) {
+                  widget.onChanged!(_filters[index]);
+                }
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(
