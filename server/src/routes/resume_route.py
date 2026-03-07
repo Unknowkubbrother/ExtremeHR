@@ -1,11 +1,16 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends , UploadFile, File
+from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
+import uuid
+import shutil
 
 from src.databases.db_connect import get_db
-from src.schemas.resume_schema import ResumeCreate, ResumeResponse
+from src.schemas.resume_schema import ResumeCreate, ResumeResponse , ResumeResult
 from src.utils.auth_utils import get_current_user_id
+
+from src.utils.llm_utils import extract_text_from_pdf, model_to_prompt_string , extract_to_json
 
 resume_router = APIRouter()
 
@@ -182,3 +187,72 @@ def get_candidate_resume(user_id: int, db: Session = Depends(get_db)):
     
     return resume_dict
 
+
+
+#Extract Resume by LLM
+
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+@resume_router.post("/upload")
+async def upload_pdf(file: UploadFile = File(...)):
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="กรุณาอัปโหลดไฟล์ PDF เท่านั้น")
+
+    safe_name = f"{uuid.uuid4()}_{file.filename}"
+    file_path = UPLOAD_DIR / safe_name
+
+    try:
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception:
+        raise HTTPException(status_code=500, detail="บันทึกไฟล์ไม่สำเร็จ")
+    finally:
+        file.file.close()
+
+
+    resume_text = extract_text_from_pdf(safe_name.split('.pdf')[0])
+    
+    schema_str = model_to_prompt_string(ResumeResult)
+
+    resume_text = resume_text[:25000]
+    
+    prompt_template = f"""
+Extract precise candidate data from the resume text and return ONLY raw JSON.
+
+# REQUIRED JSON STRUCTURE:
+# {schema_str}
+
+# IMPORTANT RULES:
+# 1. Output ONLY valid raw JSON.
+# 2. Use EXACT field names from the structure.
+# 3. `analysis` MUST be written in Thai language only.
+# 4. `skills` must be a flat array of strings only.
+# 5. Each item in `projects` must contain ONLY:
+#    - `title`
+#    - `description`
+
+# STRICT CLASSIFICATION RULES:
+# 6. `experience` = only formal employment, official internship, assistantship, cooperative education, or long-term role in a real company / institution / organization.
+# 7. `projects` = personal projects, freelance-style projects, academic projects, thesis/capstone, experiments, competition systems, side projects, startup ideas, self-initiated builds.
+# 8. If an item is a built system/product and NOT clearly a formal paid company job or official internship, put it in `projects`, NOT in `experience`.
+# 9. Do NOT duplicate the same item in both `experience` and `projects`.
+
+# MISSING VALUE RULES:
+# 10. If age is not explicitly stated, use 0.
+# 11. If address is not explicitly stated, use "".
+# 12. If any month/year is unknown, use 0.
+
+# ANALYSIS RULE:
+# 13. `analysis` should be concise Thai text summarizing the candidate's profile, strengths, and suitability.
+
+# RESUME TEXT:
+# {resume_text}
+# """
+
+    result = extract_to_json(prompt_template)
+
+    if not result:
+        raise HTTPException(status_code=500, detail="ไม่สามารถสกัดข้อมูลจาก resume ได้")
+    
+    return result
