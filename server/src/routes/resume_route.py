@@ -364,7 +364,7 @@ Extract precise candidate data from the resume text and return ONLY raw JSON.
 
 @resume_router.post("/upload")
 async def upload_resume(file: UploadFile = File(...), user_id: int = Depends(get_current_user_id)):
-    if file.content_type != "application/pdf":
+    if not file.filename or not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="กรุณาอัปโหลดไฟล์ PDF เท่านั้น")
 
     safe_name = f"{uuid.uuid4()}_{file.filename}"

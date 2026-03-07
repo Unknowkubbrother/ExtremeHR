@@ -8,6 +8,7 @@ import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/models/personal_info_model.dart';
 import 'package:client/src/services/auth_storage.dart';
 import 'package:client/src/services/resume_services.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 class ResumePage extends StatefulWidget {
@@ -32,6 +33,7 @@ class _ResumePageState extends State<ResumePage> {
 
   bool _isPersonalInfoEditing = false;
   bool _isLoading = false;
+  bool _isUploading = false;
   PersonalInformation _personalData = PersonalInformation(
     fullName: "",
     age: null,
@@ -140,6 +142,52 @@ class _ResumePageState extends State<ResumePage> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _uploadResume() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.single;
+    if (file.path == null) return;
+
+    // Check file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ไฟล์ต้องมีขนาดไม่เกิน 10MB')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isUploading = true);
+    try {
+      final token = await _authStorage.getToken();
+      if (token != null) {
+        await _resumeService.uploadResume(token, file.path!);
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('อัปโหลดสำเร็จ!')));
+        // Reload resume data from the server
+        await _loadResume();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('อัปโหลดล้มเหลว: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
       }
     }
   }
@@ -261,15 +309,14 @@ class _ResumePageState extends State<ResumePage> {
 
   Widget _buildUploadButton() {
     return GestureDetector(
-      onTap: () {
-        // TODO: Implement resume upload logic
-        print("Upload button tapped");
-      },
+      onTap: _isUploading ? null : _uploadResume,
       child: Container(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: AppColors.primary,
+          color: _isUploading
+              ? AppColors.primary.withOpacity(0.6)
+              : AppColors.primary,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -279,32 +326,49 @@ class _ResumePageState extends State<ResumePage> {
             ),
           ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          spacing: 16,
-          children: [
-            Icon(Icons.upload_file, size: 48, color: AppColors.textPrimary),
-            Column(
-              children: [
-                Text(
-                  "Upload your resume",
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: AppFontSizes.body,
-                    fontWeight: FontWeight.bold,
-                  ),
+        child: _isUploading
+            ? const Center(
+                child: Column(
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 8),
+                    Text(
+                      "กำลังอัปโหลดและวิเคราะห์ Resume...",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
                 ),
-                Text(
-                  "Resume/CV PDF 10MB",
-                  style: TextStyle(
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                spacing: 16,
+                children: [
+                  Icon(
+                    Icons.upload_file,
+                    size: 48,
                     color: AppColors.textPrimary,
-                    fontSize: AppFontSizes.small,
                   ),
-                ),
-              ],
-            ),
-          ],
-        ),
+                  Column(
+                    children: [
+                      Text(
+                        "Upload your resume",
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: AppFontSizes.body,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        "Resume/CV PDF 10MB",
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: AppFontSizes.small,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
       ),
     );
   }

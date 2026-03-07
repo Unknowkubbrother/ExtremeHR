@@ -32,6 +32,14 @@ class PersonalInfoCardState extends State<PersonalInfoCard> {
     _initControllers();
   }
 
+  @override
+  void didUpdateWidget(covariant PersonalInfoCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _initControllers();
+    }
+  }
+
   void resetData() {
     _initControllers();
   }
