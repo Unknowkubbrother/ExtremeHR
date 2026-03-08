@@ -31,7 +31,7 @@ class _VideoMeetingState extends State<VideoMeeting> {
         return Stack(
           children: [
             Container(
-              height: 250,
+              height: 400,
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
@@ -61,7 +61,7 @@ class _VideoMeetingState extends State<VideoMeeting> {
               child: GestureDetector(
                 onPanUpdate: (details) {
                   setState(() {
-                    final maxTop = 250.0 - 100;
+                    final maxTop = 400.0 - 100;
                     final maxLeft = constraints.maxWidth - 100;
 
                     _pipTop = (_pipTop ?? 10) + details.delta.dy;

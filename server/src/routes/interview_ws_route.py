@@ -47,7 +47,7 @@ async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str):
                 message = json.loads(data)
                 msg_type = message.get("type")
 
-                if msg_type in ["webrtc_sdp", "webrtc_ice"]:
+                if msg_type in ["webrtc_sdp", "webrtc_ice", "join"]:
                     await manager.broadcast_to_others(room_id, user_id, message)
                 
                 elif msg_type == "transcript":

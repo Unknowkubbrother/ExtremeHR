@@ -56,6 +56,8 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
       if (mounted) {
         setState(() {
           _localRenderer.srcObject = stream;
+          // Ensure audio is enabled for local stream explicitly
+          _webrtcService.toggleMicrophone(_isMuted);
         });
       }
     };
@@ -64,6 +66,10 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
       if (mounted) {
         setState(() {
           _remoteRenderer.srcObject = stream;
+          // IMPORTANT: explicitly enable remote audio track playout for iOS
+          if (stream.getAudioTracks().isNotEmpty) {
+            stream.getAudioTracks()[0].enabled = true;
+          }
           _isRemoteConnected = true;
         });
       }
@@ -113,6 +119,15 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
         setState(() {
           _isRemoteConnected = false;
           _remoteRenderer.srcObject = null;
+        });
+      }
+    } else if (message['type'] == 'join') {
+      // If someone else joins the room, we should re-offer to establish connection
+      if (message['user_id'] != widget.userId && widget.role == 'hr') {
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            _webrtcService.createOffer(widget.roomId, widget.userId);
+          }
         });
       }
     }

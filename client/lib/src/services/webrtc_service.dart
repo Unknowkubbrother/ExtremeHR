@@ -84,6 +84,12 @@ class WebRTCService {
     _peerConnection!.onTrack = (RTCTrackEvent event) {
       if (event.streams.isNotEmpty) {
         _remoteStream = event.streams[0];
+
+        // Ensure remote audio tracks are explicitly enabled just in case
+        for (var track in _remoteStream!.getAudioTracks()) {
+          track.enabled = true;
+        }
+
         onRemoteStream?.call(_remoteStream!);
       }
     };
@@ -159,6 +165,10 @@ class WebRTCService {
       for (var track in _localStream!.getAudioTracks()) {
         track.enabled = !isMuted;
       }
+      // Workaround for iOS: Muting the local mic can sometimes disrupt the AVAudioSession,
+      // routing remote audio to the earpiece or silencing it.
+      // explicitly keeping speakerphone on prevents the remote audio from being lost.
+      Helper.setSpeakerphoneOn(true);
     }
   }
 
