@@ -19,6 +19,8 @@ from src.models.auth_model import *
 from src.models.job_model import *
 from src.models.resume_model import *
 from src.models.interview_model import *
+from src.models.chat_history_model import *
+from src.models.interview_question_model import *
 
 config.set_main_option("sqlalchemy.url", str(POSGRES_URL).replace("'", "").replace('"', ''))
 target_metadata = Base.metadata
