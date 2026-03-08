@@ -15,7 +15,6 @@ class SpeechToTextService {
       _isInitialized = await _speechToText.initialize(
         onStatus: (status) {
           if (kDebugMode) print('STT Status: $status');
-          // We can restart listening here if it stops and we still want to record
         },
         onError: (errorNotification) {
           if (kDebugMode) print('STT Error: $errorNotification');
@@ -34,7 +33,6 @@ class SpeechToTextService {
     if (_isInitialized) {
       _speechToText.listen(
         onResult: (result) {
-          // Send transcript via WebSocket only if not muted
           if (!isMutedForSending) {
             signalingService.sendMessage({
               'type': 'transcript',
@@ -48,10 +46,8 @@ class SpeechToTextService {
           }
 
           if (result.finalResult) {
-            // When it reaches a final result, STT usually stops.
-            // In a real continuous transcription, we should restart listening here.
             Future.delayed(const Duration(milliseconds: 500), () {
-              if ( /* check if call is still active */ true) {
+              if (true) {
                 startListening(roomId, userId, role);
               }
             });

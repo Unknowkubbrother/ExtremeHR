@@ -165,9 +165,7 @@ class WebRTCService {
       for (var track in _localStream!.getAudioTracks()) {
         track.enabled = !isMuted;
       }
-      // Workaround for iOS: Muting the local mic can sometimes disrupt the AVAudioSession,
-      // routing remote audio to the earpiece or silencing it.
-      // explicitly keeping speakerphone on prevents the remote audio from being lost.
+
       Helper.setSpeakerphoneOn(true);
     }
   }

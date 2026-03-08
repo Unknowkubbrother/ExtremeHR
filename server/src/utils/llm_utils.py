@@ -3,6 +3,7 @@ import sys
 import json
 import re
 from typing import Type, TypeVar, get_args, get_origin
+from langchain_core.output_parsers import StrOutputParser , JsonOutputParser
 
 # Add the 'src' directory to the Python path to allow imports when running directly
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -114,7 +115,7 @@ def clean_and_parse_json(raw_text: str, model_cls: Type[T]) -> dict:
         return {}
 
 
-def extract_to_json(prompt_template: str) -> dict:
+def llm_generate_to_json(prompt_template: str) -> dict:
     from dotenv import load_dotenv
     load_dotenv()
 
@@ -134,7 +135,6 @@ def extract_to_json(prompt_template: str) -> dict:
         max_tokens=8192
     )
 
-
     try:
         response = llm.invoke(prompt_template)
         raw_output = response.content
@@ -142,6 +142,38 @@ def extract_to_json(prompt_template: str) -> dict:
         parsed_data = clean_and_parse_json(raw_output, ResumeResult)
 
         return parsed_data
+
+    except Exception as e:
+        print(f"LLM Error: {e}")
+        return {}
+
+def llm_generate_to_string(prompt_template: str) -> dict:
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    llm_api_key = os.getenv("LLM_API_KEY")
+    llm_base_url = os.getenv("LLM_BASE_URL")
+    llm_model = os.getenv("LLM_MODEL")
+
+    if not llm_api_key or not llm_base_url or not llm_model:
+        print("NOT SET ENV LLM")
+        return {}
+
+    llm = ChatOpenAI(
+        base_url=llm_base_url,
+        model=llm_model,
+        api_key=llm_api_key,
+        temperature=0.0,
+        max_tokens=8192
+    )
+
+    parser = StrOutputParser()
+
+    try:
+        response = llm.invoke(prompt_template)
+        result = parser .invoke(response)
+
+        return result
 
     except Exception as e:
         print(f"LLM Error: {e}")
