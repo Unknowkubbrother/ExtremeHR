@@ -32,7 +32,7 @@ def get_llm(temperature=0.2):
         model="typhoon-v2.5-30b-a3b-instruct",
         api_key=os.getenv("TYPHOON_API_KEY") or os.getenv("TYPHOON_KEY"),
         temperature=temperature,
-        max_tokens=4096,
+        max_tokens=8192,
     )
 
 def extract_json_text(raw_text: str) -> str:
@@ -82,31 +82,15 @@ def extract_json_text(raw_text: str) -> str:
             return match.group(1).strip()
         raise ValueError(f"Failed to extract valid JSON: {str(e)}")
 
-def build_agent(tools, chat_history: List = None):
+def build_agent(tools):
     llm = get_llm(temperature=0.2)
 
-    memory = ConversationBufferMemory(
-        memory_key="chat_history",
-        return_messages=True
-    )
-
-    if chat_history:
-        for msg in chat_history:
-            role = msg.get("role")
-            content = msg.get("content")
-            if role == "user":
-                memory.chat_memory.add_user_message(content)
-            elif role == "assistant":
-                memory.chat_memory.add_ai_message(content)
-
-    print("----------------------------")
-    print(memory.chat_memory)
     agent_executor = initialize_agent(
         tools=tools,
         llm=llm,
         agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
+        memory=ConversationBufferMemory(memory_key="chat_history", return_messages=True),
         handle_parsing_errors=True,
-        memory=None,
         verbose=True
     )
     return agent_executor
