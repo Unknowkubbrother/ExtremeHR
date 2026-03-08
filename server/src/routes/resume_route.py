@@ -10,7 +10,7 @@ import asyncio
 from src.databases.db_connect import get_db, SessionLocal
 from src.schemas.resume_schema import ResumeCreate, ResumeResponse , ResumeResult
 from src.utils.auth_utils import get_current_user_id
-from src.utils.llm_utils import extract_text_from_pdf, model_to_prompt_string , extract_to_json
+from src.utils.llm_utils import extract_text_from_pdf, model_to_prompt_string , llm_generate_to_json
 
 resume_router = APIRouter()
 
@@ -235,7 +235,7 @@ Extract precise candidate data from the resume text and return ONLY raw JSON.
 # {resume_text}
 # """
 
-    result = extract_to_json(prompt_template)
+    result = llm_generate_to_json(prompt_template)
 
     if not result:
         return {}
