@@ -16,8 +16,13 @@ class Interview(Base):
     job_id = Column(BigInteger, ForeignKey("jobs.id"), nullable=False)
 
     context = Column(String, nullable=True)
+    candidate_profile_summary = Column(String, nullable=True)
+    job_profile_summary = Column(String, nullable=True)
+    candidate_strengths = Column(String, nullable=True)
+    candidate_gaps = Column(String, nullable=True)
+    hr_interest = Column(String, nullable=True)
     
     user = relationship("User", back_populates="interviews")
     job = relationship("Job", back_populates="interviews")
-    questions = relationship("InterviewQuestion", back_populates="interview", cascade="all, delete-orphan")
-    chat_histories = relationship("ChatHistory", back_populates="interview", cascade="all, delete-orphan")
+    questions = relationship("InterviewQuestion", back_populates="interview")
+    chat_histories = relationship("ChatHistory", back_populates="interview")
