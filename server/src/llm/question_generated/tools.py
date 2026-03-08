@@ -124,29 +124,6 @@ def build_tools(db: Session):
             db.rollback()
             return json.dumps({"projects": []}, ensure_ascii=False)
 
-    def get_previous_questions(interview_id_str: str) -> str:
-        try:
-            interview_id = int(str(interview_id_str).strip())
-            query = text("""
-                SELECT question, expected_answer
-                FROM interview_questions 
-                WHERE interview_id = :id
-            """)
-            rows = db.execute(query, {"id": interview_id}).fetchall()
-            
-            questions = []
-            for row in rows:
-                questions.append({
-                    "question": row.question,
-                    "expected_answer": row.expected_answer,
-                })
-
-            return json.dumps({"questions": questions}, ensure_ascii=False)
-        except Exception as e:
-            db.rollback()
-            return json.dumps({"questions": []}, ensure_ascii=False)
-
-
     tools = [
         Tool(
             name="GetJobCore",
@@ -172,11 +149,6 @@ def build_tools(db: Session):
             name="GetResumeProjects",
             func=get_resume_projects,
             description="Use this tool to get the candidate's projects. Input should be the interview_id as a string."
-        ),
-        Tool(
-            name="GetPreviousQuestions",
-            func=get_previous_questions,
-            description="Use this tool to get the previously generated or asked interview questions. Input should be the interview_id as a string."
         ),
     ]
 
