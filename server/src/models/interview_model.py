@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, BigInteger
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, BigInteger, Float
 from src.databases.db_connect import Base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -21,6 +21,7 @@ class Interview(Base):
     candidate_strengths = Column(String, nullable=True)
     candidate_gaps = Column(String, nullable=True)
     hr_interest = Column(String, nullable=True)
+    difficulty = Column(Float, nullable=True, server_default="0.5")
     
     user = relationship("User", back_populates="interviews")
     job = relationship("Job", back_populates="interviews")

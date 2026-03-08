@@ -13,6 +13,9 @@ interview_question_router = APIRouter()
 
 @interview_question_router.post("/test-generate")
 def test_generate_questions(request: GenerateRequest, db: Session = Depends(get_db)):
+    import traceback
+    import sys
+    
     try:
         results = generate_interview_questions(
             db=db,
@@ -23,6 +26,15 @@ def test_generate_questions(request: GenerateRequest, db: Session = Depends(get_
         
         return {"message": request.hr_prompt, "questions": results.model_dump()}
     except ValueError as e:
+        # Known business logic errors (e.g. "Interview not found")
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Unexpected errors: log to backend, show generic to frontend
+        print("=== ERROR DURING QUESTION GENERATION ===", file=sys.stderr)
+        traceback.print_exc()
+        print("========================================", file=sys.stderr)
+        
+        raise HTTPException(
+            status_code=500, 
+            detail="เกิดข้อผิดพลาดในการสร้างคำถามสัมภาษณ์ (Internal Server Error)."
+        )
