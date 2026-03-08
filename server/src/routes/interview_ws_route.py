@@ -41,6 +41,8 @@ async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str):
     try:
         while True:
             data = await websocket.receive_text()
+
+            print(data)
             try:
                 message = json.loads(data)
                 msg_type = message.get("type")

@@ -34,6 +34,10 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
 
   final List<Map<String, dynamic>> _transcripts = [];
 
+  double? _pipTop = 20;
+  double? _pipRight = 20;
+  double? _pipLeft;
+
   @override
   void initState() {
     super.initState();
@@ -153,147 +157,180 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
         backgroundColor: Colors.black87,
         foregroundColor: Colors.white,
       ),
-      body: Stack(
-        children: [
-          // Remote Video (Full Screen)
-          if (_isRemoteConnected)
-            RTCVideoView(
-              _remoteRenderer,
-              objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-            )
-          else
-            const Center(
-              child: Text(
-                'Waiting for other participant...',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-
-          // Local Video (PiP)
-          Positioned(
-            top: 20,
-            right: 20,
-            child: Container(
-              width: 120,
-              height: 160,
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white38),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: RTCVideoView(
-                  _localRenderer,
-                  mirror: true,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: [
+              // Remote Video (Full Screen)
+              if (_isRemoteConnected)
+                RTCVideoView(
+                  _remoteRenderer,
                   objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                )
+              else
+                const Center(
+                  child: Text(
+                    'Waiting for other participant...',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
-              ),
-            ),
-          ),
 
-          // Subtitles/Transcripts
-          if (_transcripts.isNotEmpty)
-            Positioned(
-              bottom: 100,
-              left: 20,
-              right: 20,
-              child: Container(
-                height: 150,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: ListView.builder(
-                  itemCount: _transcripts.length,
-                  itemBuilder: (context, index) {
-                    final msg = _transcripts[index];
-                    final isMe = msg['speaker_id'] == widget.userId;
-                    final roleText = isMe
-                        ? 'You'
-                        : (msg['role'] == 'hr' ? 'HR' : 'Candidate');
-                    final color = isMe ? Colors.blue[300] : Colors.green[300];
+              // Local Video (PiP)
+              Positioned(
+                top: _pipTop,
+                left: _pipLeft,
+                right: _pipRight,
+                child: GestureDetector(
+                  onPanUpdate: (details) {
+                    setState(() {
+                      final maxTop = constraints.maxHeight - 160;
+                      final maxLeft = constraints.maxWidth - 120;
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '$roleText: ',
-                              style: TextStyle(
-                                color: color,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            TextSpan(
-                              text: msg['text'],
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
+                      _pipTop = (_pipTop ?? 20) + details.delta.dy;
+                      _pipTop = _pipTop!.clamp(0.0, maxTop);
+
+                      if (_pipLeft != null) {
+                        _pipLeft = _pipLeft! + details.delta.dx;
+                        _pipLeft = _pipLeft!.clamp(0.0, maxLeft);
+                      } else {
+                        if (_pipRight != null) {
+                          _pipLeft = constraints.maxWidth - 120 - _pipRight!;
+                          _pipRight = null;
+                        }
+                        _pipLeft = (_pipLeft ?? 0) + details.delta.dx;
+                        _pipLeft = _pipLeft!.clamp(0.0, maxLeft);
+                      }
+                    });
                   },
+                  child: Container(
+                    width: 120,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white38),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: RTCVideoView(
+                        _localRenderer,
+                        mirror: true,
+                        objectFit:
+                            RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
 
-          // Controls
-          Positioned(
-            bottom: 30,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundColor: _isMuted ? Colors.red : Colors.white24,
-                  child: IconButton(
-                    icon: Icon(
-                      _isMuted ? Icons.mic_off : Icons.mic,
-                      color: Colors.white,
+              // Subtitles/Transcripts
+              if (_transcripts.isNotEmpty)
+                Positioned(
+                  bottom: 100,
+                  left: 20,
+                  right: 20,
+                  child: Container(
+                    height: 150,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    onPressed: _toggleMute,
+                    child: ListView.builder(
+                      itemCount: _transcripts.length,
+                      itemBuilder: (context, index) {
+                        final msg = _transcripts[index];
+                        final isMe = msg['speaker_id'] == widget.userId;
+                        final roleText = isMe
+                            ? 'You'
+                            : (msg['role'] == 'hr' ? 'HR' : 'Candidate');
+                        final color = isMe
+                            ? Colors.blue[300]
+                            : Colors.green[300];
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '$roleText: ',
+                                  style: TextStyle(
+                                    color: color,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: msg['text'],
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
-                const SizedBox(width: 20),
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.red,
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.call_end,
-                      color: Colors.white,
-                      size: 30,
+
+              // Controls
+              Positioned(
+                bottom: 30,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 25,
+                      backgroundColor: _isMuted ? Colors.red : Colors.white24,
+                      child: IconButton(
+                        icon: Icon(
+                          _isMuted ? Icons.mic_off : Icons.mic,
+                          color: Colors.white,
+                        ),
+                        onPressed: _toggleMute,
+                      ),
                     ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 20),
-                CircleAvatar(
-                  radius: 25,
-                  backgroundColor: _isVideoOff ? Colors.red : Colors.white24,
-                  child: IconButton(
-                    icon: Icon(
-                      _isVideoOff ? Icons.videocam_off : Icons.videocam,
-                      color: Colors.white,
+                    const SizedBox(width: 20),
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: Colors.red,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.call_end,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                      ),
                     ),
-                    onPressed: _toggleVideo,
-                  ),
+                    const SizedBox(width: 20),
+                    CircleAvatar(
+                      radius: 25,
+                      backgroundColor: _isVideoOff
+                          ? Colors.red
+                          : Colors.white24,
+                      child: IconButton(
+                        icon: Icon(
+                          _isVideoOff ? Icons.videocam_off : Icons.videocam,
+                          color: Colors.white,
+                        ),
+                        onPressed: _toggleVideo,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
