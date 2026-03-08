@@ -42,7 +42,6 @@ async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str):
         while True:
             data = await websocket.receive_text()
 
-            print(data)
             try:
                 message = json.loads(data)
                 msg_type = message.get("type")
@@ -51,7 +50,6 @@ async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str):
                     await manager.broadcast_to_others(room_id, user_id, message)
                 
                 elif msg_type == "transcript":
-                    # Note: You can add DB saving logic here for final transcripts
                     await manager.broadcast_to_others(room_id, user_id, message)
                     
             except json.JSONDecodeError:
