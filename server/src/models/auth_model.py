@@ -28,6 +28,8 @@ class User(Base):
     jobs = relationship("Job", back_populates="user")
     resume = relationship("Resume", back_populates="user", uselist=False)
     company = relationship("Company", back_populates="user", uselist=False)
+    interviews = relationship("Interview", back_populates="user")
+    chat_histories = relationship("ChatHistory", back_populates="user")
 
 class Company(Base):
     __tablename__ = "companies"

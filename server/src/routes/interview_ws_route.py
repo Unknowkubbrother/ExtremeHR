@@ -1,6 +1,10 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect , Depends
 import json
 import logging
+
+from src.databases.db_connect import get_db
+from sqlalchemy.orm import Session
+from datetime import datetime
 
 interview_ws_router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -34,9 +38,10 @@ class ConnectionManager:
                         logger.error(f"Error sending message to {uid}: {e}")
 
 manager = ConnectionManager()
+chat_histories = dict()
 
 @interview_ws_router.websocket("/{room_id}/{user_id}")
-async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str):
+async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str , db: Session = Depends(get_db)):
     await manager.connect(websocket, room_id, user_id)
     try:
         while True:
@@ -48,8 +53,17 @@ async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str):
 
                 if msg_type in ["webrtc_sdp", "webrtc_ice", "join"]:
                     await manager.broadcast_to_others(room_id, user_id, message)
+                    
                 
                 elif msg_type == "transcript":
+                    if room_id not in chat_histories:
+                        chat_histories[room_id] = []
+                    
+                    chat_histories[room_id].append({
+                        "user_id": int(message.get("speaker_id")),
+                        "message": message.get("text"),
+                        "timestamp": message.get("timestamp")
+                    })
                     await manager.broadcast_to_others(room_id, user_id, message)
                     
             except json.JSONDecodeError:
@@ -61,3 +75,20 @@ async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str):
             "type": "user_left",
             "user_id": user_id
         })
+
+        if room_id in chat_histories and chat_histories[room_id]:
+            from sqlalchemy import text
+            sql_insert = text("""
+                INSERT INTO chat_histories (interview_id, user_id, message, created_at)
+                VALUES (:interview_id, :user_id, :message, :created_at)
+            """)
+            for item in chat_histories[room_id]:
+                db.execute(sql_insert, {
+                    "interview_id": int(room_id),
+                    "user_id": item["user_id"],
+                    "message": item["message"],
+                    "created_at": datetime.fromisoformat(item["timestamp"])
+                })
+            db.commit()
+            chat_histories[room_id].clear()
+
