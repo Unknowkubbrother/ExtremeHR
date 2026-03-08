@@ -45,8 +45,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is required for video calls</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Microphone access is required for speech to text</string>
+	<string>Microphone access is required for speech to text and video calls</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Speech recognition is required to convert your voice to text</string>
 </dict>

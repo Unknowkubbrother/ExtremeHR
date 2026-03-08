@@ -7,16 +7,25 @@ import 'package:client/src/services/auth_storage.dart';
 import 'package:client/src/services/user_services.dart';
 import 'dart:async';
 
+import 'package:client/src/services/signaling_service.dart';
+
 class ChatMeeting extends StatefulWidget {
   final bool isMicOn;
+  final SignalingService? signalingService;
+  final String? roomId;
 
-  const ChatMeeting({super.key, required this.isMicOn});
+  const ChatMeeting({
+    super.key,
+    required this.isMicOn,
+    this.signalingService,
+    this.roomId,
+  });
 
   @override
-  State<ChatMeeting> createState() => _ChatMeetingState();
+  State<ChatMeeting> createState() => ChatMeetingState();
 }
 
-class _ChatMeetingState extends State<ChatMeeting> {
+class ChatMeetingState extends State<ChatMeeting> {
   final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speechToText = stt.SpeechToText();
   bool _isListening = false;
@@ -34,33 +43,7 @@ class _ChatMeetingState extends State<ChatMeeting> {
   int _committedLength =
       0; // Track how much text is already in previous bubbles
 
-  final List<ChatMessage> _messages = [
-    const ChatMessage(
-      role: "HR",
-      time: "0:32",
-      text: "Tell me about your experience with React at scale.",
-      userId: 1,
-      username: "hr_manager",
-      fullName: "HR Manager",
-    ),
-    const ChatMessage(
-      role: "Candidate",
-      time: "0:45",
-      text:
-          "I've built several large-scale React applications handling millions of users. At my previous company, I architected a micro-frontend system that reduced bundle sizes by 40%.",
-      userId: 2,
-      username: "candidate_01",
-      fullName: "Candidate Profile",
-    ),
-    const ChatMessage(
-      role: "HR",
-      time: "2:15",
-      text: "How do you handle state management in complex applications?",
-      userId: 1,
-      username: "hr_manager",
-      fullName: "HR Manager",
-    ),
-  ];
+  final List<ChatMessage> _messages = [];
 
   @override
   void initState() {
@@ -257,6 +240,21 @@ class _ChatMeetingState extends State<ChatMeeting> {
             if (mounted && _currentText.isNotEmpty) {
               debugPrint('STT: Silence detected, finalizing bubble.');
               _committedLength = fullText.length;
+
+              if (widget.signalingService != null && widget.roomId != null) {
+                widget.signalingService!.sendMessage({
+                  'type': 'transcript',
+                  'room_id': widget.roomId,
+                  'speaker_id': _currentUserId.toString(),
+                  'role': _currentUserRole,
+                  'text': _currentText,
+                  'is_final': true,
+                  'timestamp': DateTime.now().toIso8601String(),
+                  'time':
+                      "${DateTime.now().minute}:${DateTime.now().second.toString().padLeft(2, '0')}",
+                });
+              }
+
               setState(() {
                 _isNewMessage = true;
                 _currentText = "";
@@ -300,6 +298,27 @@ class _ChatMeetingState extends State<ChatMeeting> {
       debugPrint('STT Listen Exception: $e');
       _isAttempting = false;
     }
+  }
+
+  void handleRemoteTranscript(Map<String, dynamic> message) {
+    if (!mounted) return;
+    setState(() {
+      _messages.add(
+        ChatMessage(
+          role: message['role']?.toString() ?? 'HR',
+          time: message['time']?.toString() ?? '0:00',
+          text: message['text']?.toString() ?? '',
+          userId: int.tryParse(message['speaker_id']?.toString() ?? '2') ?? 2,
+          username: message['role']?.toString() == 'hr'
+              ? 'HR Manager'
+              : 'Candidate',
+          fullName: message['role']?.toString() == 'hr'
+              ? 'HR Manager'
+              : 'Candidate Profile',
+        ),
+      );
+    });
+    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
   }
 
   @override
