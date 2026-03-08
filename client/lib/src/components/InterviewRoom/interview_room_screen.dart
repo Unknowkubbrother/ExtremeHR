@@ -149,11 +149,9 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
     });
     _webrtcService.toggleMicrophone(_isMuted);
 
-    if (_isMuted) {
-      _sttService.stopListening();
-    } else {
-      _sttService.startListening(widget.roomId, widget.userId, widget.role);
-    }
+    // Instead of stopping the STT service (which drops the iOS AVAudioSession and
+    // breaks the WebRTC remote audio playback), we just tell it to stop sending.
+    _sttService.isMutedForSending = _isMuted;
   }
 
   void _toggleVideo() {

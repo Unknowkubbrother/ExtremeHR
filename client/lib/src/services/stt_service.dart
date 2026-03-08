@@ -6,6 +6,7 @@ class SpeechToTextService {
   final stt.SpeechToText _speechToText = stt.SpeechToText();
   bool _isInitialized = false;
   final SignalingService signalingService;
+  bool isMutedForSending = false;
 
   SpeechToTextService(this.signalingService);
 
@@ -33,16 +34,18 @@ class SpeechToTextService {
     if (_isInitialized) {
       _speechToText.listen(
         onResult: (result) {
-          // Send transcript via WebSocket
-          signalingService.sendMessage({
-            'type': 'transcript',
-            'room_id': roomId,
-            'speaker_id': userId,
-            'role': role,
-            'text': result.recognizedWords,
-            'is_final': result.finalResult,
-            'timestamp': DateTime.now().toUtc().toIso8601String(),
-          });
+          // Send transcript via WebSocket only if not muted
+          if (!isMutedForSending) {
+            signalingService.sendMessage({
+              'type': 'transcript',
+              'room_id': roomId,
+              'speaker_id': userId,
+              'role': role,
+              'text': result.recognizedWords,
+              'is_final': result.finalResult,
+              'timestamp': DateTime.now().toUtc().toIso8601String(),
+            });
+          }
 
           if (result.finalResult) {
             // When it reaches a final result, STT usually stops.
