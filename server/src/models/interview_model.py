@@ -19,3 +19,5 @@ class Interview(Base):
     
     user = relationship("User", back_populates="interviews")
     job = relationship("Job", back_populates="interviews")
+    questions = relationship("InterviewQuestion", back_populates="interview", cascade="all, delete-orphan")
+    chat_histories = relationship("ChatHistory", back_populates="interview", cascade="all, delete-orphan")
