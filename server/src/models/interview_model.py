@@ -27,3 +27,4 @@ class Interview(Base):
     job = relationship("Job", back_populates="interviews")
     questions = relationship("InterviewQuestion", back_populates="interview")
     chat_histories = relationship("ChatHistory", back_populates="interview")
+    summary = relationship("InterviewSummary", back_populates="interview")
