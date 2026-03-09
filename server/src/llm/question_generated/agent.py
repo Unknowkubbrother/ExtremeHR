@@ -65,7 +65,7 @@ def extract_json_text(raw_text: str) -> str:
     text = raw_text.strip()
 
     try:
-        json.loads(text)
+        json.loads(text, strict=False)
         return text
     except Exception:
         pass
@@ -74,7 +74,7 @@ def extract_json_text(raw_text: str) -> str:
     if fenced:
         inner_text = fenced.group(1).strip()
         try:
-            json.loads(inner_text)
+            json.loads(inner_text, strict=False)
             return inner_text
         except Exception:
             text = inner_text
@@ -92,14 +92,26 @@ def extract_json_text(raw_text: str) -> str:
         raise ValueError("No '{' or '[' found in LLM output")
 
     trimmed_text = text[start_index:]
+    # Note: JSONDecoder doesn't take 'strict' in constructor, but raw_decode handles it if we pass a custom decoder or just allow it in the loads final check.
+    # Actually, standard JSONDecoder.raw_decode doesn't easily support strict=False for the internal string parsing.
+    # But we can use json.loads(trimmed_text[:end_index], strict=False) later.
+    
     decoder = json.JSONDecoder()
     try:
         obj, end_index = decoder.raw_decode(trimmed_text)
-        return trimmed_text[:end_index].strip()
+        json_candidate = trimmed_text[:end_index].strip()
+        # Verify with strict=False
+        json.loads(json_candidate, strict=False)
+        return json_candidate
     except Exception as e:
         match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
         if match:
-            return match.group(1).strip()
+            candidate = match.group(1).strip()
+            try:
+                json.loads(candidate, strict=False)
+                return candidate
+            except Exception:
+                pass
         raise ValueError(f"Failed to extract valid JSON: {str(e)}")
 
 def build_agent(tools):

@@ -446,28 +446,32 @@ def summarize_hr_style(db: Session, interview_id: int, new_prompt: str) -> str:
 
     llm = get_llm(temperature=0.2)
     summary_prompt = f"""
-Current HR Profile (Context Only):
-{old_profile or "None"}
-
-New HR Request (Highest Priority):
+New HR Request (PRIMARY SOURCE OF TRUTH):
 {new_prompt}
 
+Current HR Profile (Context Only – may be outdated):
+{old_profile or "None"}
+
 TASK:
-Update the HR Profile using the New HR Request as the PRIMARY source of truth.
+Update the HR Profile using the New HR Request as the primary source.
 
 RULES:
 1. The New HR Request has higher priority than the Current HR Profile.
-2. Only keep information from the Current HR Profile if it does NOT conflict with the New HR Request.
-3. If the New Request changes the focus, discard outdated instructions from the old profile.
-4. If the New Request asks to 'clear', 'reset', or 'start over', ignore the old profile completely.
-5. Keep the profile concise (MAX 3 sentences).
-6. Do NOT invent roles, industries, or skills that are not mentioned.
-7. If the New HR Request is vague, keep the profile generic.
-8. Prefer the NEW request over preserving old details.
+2. Remove any topic explicitly excluded in the New HR Request.
+3. Only keep information from the Current HR Profile if it does NOT conflict.
+4. If the New Request changes the focus, discard outdated instructions.
+5. If the New Request says "clear", "reset", or "start over", ignore the old profile.
+6. Keep the profile concise (MAX 3 sentences).
+7. Each sentence must be under 15 words.
+8. Do NOT invent roles, industries, technologies, or skills not mentioned.
+9. NEVER introduce new concepts not present in the New HR Request.
+10. Prefer the NEW request over preserving old details.
+
+FINAL CHECK:
+Ensure the profile does NOT contain any topics excluded in the New HR Request.
 
 OUTPUT:
 Return ONLY the updated HR Profile text.
-Each sentence must be under 15 words.
 """
     response = llm.invoke(summary_prompt)
     summary = response.content.strip()
