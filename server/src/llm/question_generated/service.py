@@ -36,28 +36,32 @@ def summarize_hr_style(db: Session, interview_id: int, new_prompt: str) -> str:
     
     # We provide a structured merging prompt
     summary_prompt = f"""
-Current HR Profile (Context Only):
-{old_profile or "None"}
-
-New HR Request (Highest Priority):
+New HR Request (PRIMARY SOURCE OF TRUTH):
 {new_prompt}
 
+Current HR Profile (Context Only – may be outdated):
+{old_profile or "None"}
+
 TASK:
-Update the HR Profile using the New HR Request as the PRIMARY source of truth.
+Update the HR Profile using the New HR Request as the primary source.
 
 RULES:
 1. The New HR Request has higher priority than the Current HR Profile.
-2. Only keep information from the Current HR Profile if it does NOT conflict with the New HR Request.
-3. If the New Request changes the focus, discard outdated instructions from the old profile.
-4. If the New Request asks to 'clear', 'reset', or 'start over', ignore the old profile completely.
-5. Keep the profile concise (MAX 3 sentences).
-6. Do NOT invent roles, industries, or skills that are not mentioned.
-7. If the New HR Request is vague, keep the profile generic.
-8. Prefer the NEW request over preserving old details.
+2. Remove any topic explicitly excluded in the New HR Request.
+3. Only keep information from the Current HR Profile if it does NOT conflict.
+4. If the New Request changes the focus, discard outdated instructions.
+5. If the New Request says "clear", "reset", or "start over", ignore the old profile.
+6. Keep the profile concise (MAX 3 sentences).
+7. Each sentence must be under 15 words.
+8. Do NOT invent roles, industries, technologies, or skills not mentioned.
+9. NEVER introduce new concepts not present in the New HR Request.
+10. Prefer the NEW request over preserving old details.
+
+FINAL CHECK:
+Ensure the profile does NOT contain any topics excluded in the New HR Request.
 
 OUTPUT:
 Return ONLY the updated HR Profile text.
-Each sentence must be under 15 words.
 """
     # Direct call to LLM
     response = llm.invoke(summary_prompt)
@@ -190,28 +194,36 @@ Return ONLY a valid JSON object.
 }}
 """
 
-    # We pass the history of previous questions so the memory is "active"
-    agent = build_agent(tools) # No longer passing chat_history here
+    # 4) Generate Questions (with Retry Logic)
+    agent = build_agent(tools)
+    max_retries = 2
+    attempt = 0
+    feedback_msg = ""
     
-    try:
-        result = agent.run(current_prompt)
-        
-        json_str = extract_json_text(result)
-        parsed_data = json.loads(json_str)
+    while attempt <= max_retries:
+        combined_prompt = current_prompt
+        if attempt > 0:
+            combined_prompt += f"\n\nERROR FROM PREVIOUS ATTEMPT:\n{feedback_msg}\n\nPlease fix the JSON and return the corrected version."
 
-        if isinstance(parsed_data, list):
-            parsed_data = {"questions": parsed_data}
-
-        # This will raise ValidationError if JSON is incomplete
-        return QuestionCandidates.model_validate(parsed_data)
-    except Exception as e:
-        print("--- RAW LLM OUTPUT START ---")
         try:
-            print(result) # Show what we got if result was assigned
-        except NameError:
-            print("No result obtained from agent.")
-        print("--- RAW LLM OUTPUT END ---")
-        raise e
+            result = agent.run(combined_prompt)
+            json_str = extract_json_text(result)
+            parsed_data = json.loads(json_str, strict=False)
+
+            if isinstance(parsed_data, list):
+                parsed_data = {"questions": parsed_data}
+
+            # This will raise ValidationError if JSON is incomplete
+            return QuestionCandidates.model_validate(parsed_data)
+            
+        except Exception as e:
+            attempt += 1
+            feedback_msg = f"Error parsing JSON: {str(e)}\nRaw Output: {result if 'result' in locals() else 'No result'}"
+            print(f"--- Attempt {attempt} failed ---")
+            print(feedback_msg)
+            if attempt > max_retries:
+                print("--- FINAL FAILURE ---")
+                raise e
 
 
 def save_generated_questions(
