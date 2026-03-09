@@ -27,6 +27,20 @@ WHY_THIS_QUESTION_LABEL = re.compile(
     r"^(?:why this question|เหตุผล(?:ที่ถาม)?|เหตุผลของคำถาม)\s*:?\s*(.*)$",
     re.IGNORECASE,
 )
+PLAIN_TEXT_PREAMBLE = (
+    "based on",
+    "here are",
+    "below are",
+    "the following",
+    "following are",
+    "these are",
+    "ต่อไปนี้",
+    "คำถามต่อไปนี้",
+    "ด้านล่างนี้",
+    "จากรายละเอียด",
+    "จากข้อมูล",
+    "นี่คือ",
+)
 
 
 def _contains_thai(text: str) -> bool:
@@ -127,6 +141,40 @@ def _strip_list_prefix(text: str) -> str:
     return re.sub(r"^(?:[-*•]\s+|\d+[.)]\s+)", "", text or "").strip()
 
 
+def _normalize_inline_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip()).strip()
+
+
+def _matches_field_label(text: str) -> bool:
+    line = _strip_markdown(text or "")
+    return any(
+        pattern.match(line)
+        for pattern in (
+            INTERVIEW_QUESTION_LABEL,
+            EXPECTED_ANSWER_LABEL,
+            COMPETENCY_LABEL,
+            DIFFICULTY_LABEL,
+            WHY_THIS_QUESTION_LABEL,
+        )
+    )
+
+
+def _is_plain_text_preamble(text: str) -> bool:
+    normalized = _normalize_inline_whitespace(_strip_list_prefix(text)).lower()
+    return any(normalized.startswith(prefix) for prefix in PLAIN_TEXT_PREAMBLE)
+
+
+def _is_candidate_question_text(text: str) -> bool:
+    cleaned = _normalize_inline_whitespace(_strip_list_prefix(_strip_markdown(text)))
+    if len(cleaned) < 20:
+        return False
+    if _matches_field_label(cleaned):
+        return False
+    if _is_plain_text_preamble(cleaned):
+        return False
+    return True
+
+
 def _split_structured_question_blocks(raw_text: str) -> list[str]:
     pattern = re.compile(
         r"(?m)^\s*(?:\d+\.\s*)?(?:\*\*)?(?:interview question|question|คำถามสัมภาษณ์)\b",
@@ -214,12 +262,47 @@ def _parse_structured_question_output(raw_text: str) -> dict:
     return {"questions": questions}
 
 
+def _parse_plain_question_output(raw_text: str) -> dict:
+    paragraphs = [
+        _normalize_inline_whitespace(_strip_list_prefix(_strip_markdown(block)))
+        for block in re.split(r"\n\s*\n+", raw_text or "")
+    ]
+    paragraphs = [block for block in paragraphs if _is_candidate_question_text(block)]
+
+    if len(paragraphs) >= 2:
+        return {
+            "questions": [
+                {"interview_question": question_text}
+                for question_text in paragraphs[:3]
+            ]
+        }
+
+    lines = [
+        _normalize_inline_whitespace(_strip_list_prefix(_strip_markdown(line)))
+        for line in (raw_text or "").splitlines()
+    ]
+    lines = [line for line in lines if _is_candidate_question_text(line)]
+
+    if len(lines) >= 2:
+        return {
+            "questions": [
+                {"interview_question": question_text}
+                for question_text in lines[:3]
+            ]
+        }
+
+    raise ValueError("LLM returned an unsupported response format.")
+
+
 def _parse_llm_question_response(raw_text: str, hr_prompt: str) -> dict:
     try:
         json_str = extract_json_text(raw_text)
         parsed_data = json.loads(json_str)
     except Exception:
-        parsed_data = _parse_structured_question_output(raw_text)
+        try:
+            parsed_data = _parse_structured_question_output(raw_text)
+        except ValueError:
+            parsed_data = _parse_plain_question_output(raw_text)
 
     return _normalize_question_payload(parsed_data, hr_prompt)
 

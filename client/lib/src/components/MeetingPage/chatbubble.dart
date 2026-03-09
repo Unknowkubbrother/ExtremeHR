@@ -15,8 +15,12 @@ class ChatBubble extends StatelessWidget {
     final bubbleColor = isAi
         ? Colors.amber.shade50
         : (isMe ? Colors.indigo.shade500 : Colors.blue.shade50);
-    final primaryTextColor = isMe ? Colors.white : Colors.black87;
-    final secondaryTextColor = isMe ? Colors.white70 : Colors.black54;
+    final primaryTextColor = isAi
+        ? Colors.black87
+        : (isMe ? Colors.white : Colors.black87);
+    final secondaryTextColor = isAi
+        ? Colors.black45
+        : (isMe ? Colors.white70 : Colors.black54);
     final nameColor = isAi ? Colors.orange.shade800 : primaryTextColor;
 
     return Align(
