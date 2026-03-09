@@ -198,4 +198,64 @@ class InterviewService {
 
     return 'Failed to generate interview questions';
   }
+
+  Future<InterviewSummary> getInterviewSummary(
+    String token,
+    String interviewId,
+  ) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.get(
+      Uri.parse('$apiUrl/interview-llm/summary/$interviewId'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    dynamic responseBody;
+    try {
+      responseBody = jsonDecode(response.body);
+    } catch (_) {
+      responseBody = response.body;
+    }
+
+    if (response.statusCode == 200 && responseBody is Map<String, dynamic>) {
+      return InterviewSummary.fromJson(responseBody);
+    }
+
+    throw Exception(_extractErrorMessage(responseBody));
+  }
+
+  Future<InterviewSummary> generateInterviewSummary(
+    String token,
+    String interviewId,
+  ) async {
+    final parsedInterviewId = int.tryParse(interviewId);
+    if (parsedInterviewId == null) {
+      throw Exception('Invalid interview id');
+    }
+
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.post(
+      Uri.parse('$apiUrl/interview-llm/generate-summary'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'interview_id': parsedInterviewId}),
+    );
+
+    dynamic responseBody;
+    try {
+      responseBody = jsonDecode(response.body);
+    } catch (_) {
+      responseBody = response.body;
+    }
+
+    if (response.statusCode == 200 && responseBody is Map<String, dynamic>) {
+      return InterviewSummary.fromJson(responseBody);
+    }
+
+    throw Exception(_extractErrorMessage(responseBody));
+  }
 }
