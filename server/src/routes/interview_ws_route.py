@@ -103,7 +103,7 @@ async def interview_endpoint(
                 message = json.loads(data)
                 msg_type = message.get("type")
 
-                if msg_type in ["webrtc_sdp", "webrtc_ice", "join"]:
+                if msg_type in ["webrtc_sdp", "webrtc_ice", "join", "interview_ended"]:
                     if msg_type == "join":
                         normalized_role = _normalize_room_role(message.get("role"))
                         if room_id not in room_roles:

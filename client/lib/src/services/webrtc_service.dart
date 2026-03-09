@@ -16,11 +16,29 @@ class WebRTCService {
 
   WebRTCService(this.signalingService);
 
+  Future<void> _configureAppleAudioSession() async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      return;
+    }
+
+    try {
+      await Helper.setAppleAudioIOMode(
+        AppleAudioIOMode.localAndRemote,
+        preferSpeakerOutput: true,
+      );
+      await Helper.ensureAudioSession();
+    } catch (e) {
+      if (kDebugMode) print('Error configuring iOS audio session: $e');
+    }
+  }
+
   void _enableSpeakerphone() {
     Helper.setSpeakerphoneOn(true);
   }
 
   Future<void> initLocalStream() async {
+    await _configureAppleAudioSession();
+
     final Map<String, dynamic> mediaConstraints = {
       'audio': true,
       'video': {
@@ -122,6 +140,7 @@ class WebRTCService {
     if (_peerConnection == null) return;
 
     try {
+      await _configureAppleAudioSession();
       RTCSessionDescription offer = await _peerConnection!.createOffer({
         'offerToReceiveAudio': true,
         'offerToReceiveVideo': true,
@@ -145,6 +164,7 @@ class WebRTCService {
     if (_peerConnection == null) return;
 
     try {
+      await _configureAppleAudioSession();
       RTCSessionDescription answer = await _peerConnection!.createAnswer({
         'offerToReceiveAudio': true,
         'offerToReceiveVideo': true,

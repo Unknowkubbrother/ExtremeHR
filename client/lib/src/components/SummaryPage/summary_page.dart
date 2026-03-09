@@ -1,4 +1,5 @@
 import 'package:client/src/components/ResumePage/card_content.dart';
+import 'package:client/src/components/shared/confirm.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
 import 'package:client/src/models/interview_model.dart';
@@ -23,10 +24,27 @@ class SummaryPage extends StatefulWidget {
 class _SummaryPageState extends State<SummaryPage> {
   final InterviewService _interviewService = InterviewService();
   final AuthStorage _authStorage = AuthStorage();
+  final ConfirmDialog _acceptDialog = const ConfirmDialog(
+    title: 'Accept this candidate?',
+    content: 'This candidate will move to the accepted stage.',
+    confirmText: 'Accept',
+    cancelText: 'Cancel',
+    confirmColor: Colors.green,
+    cancelColor: AppColors.textPrimaryTo,
+  );
+  final ConfirmDialog _rejectDialog = const ConfirmDialog(
+    title: 'Reject this candidate?',
+    content: 'This action cannot be undone.',
+    confirmText: 'Reject',
+    cancelText: 'Cancel',
+    confirmColor: Colors.red,
+    cancelColor: AppColors.textPrimaryTo,
+  );
 
   InterviewSummary? _summary;
   bool _isLoading = true;
   bool _isGenerating = false;
+  bool _isDecisionUpdating = false;
   String? _errorMessage;
 
   @override
@@ -114,6 +132,61 @@ class _SummaryPageState extends State<SummaryPage> {
     }
   }
 
+  Future<void> _acceptCandidate() async {
+    final confirmed = await _acceptDialog.show(context);
+    if (confirmed != true) {
+      return;
+    }
+
+    await _runDecisionAction(
+      (token) => _interviewService.acceptInterview(token, widget.interviewId),
+    );
+  }
+
+  Future<void> _rejectCandidate() async {
+    final confirmed = await _rejectDialog.show(context);
+    if (confirmed != true) {
+      return;
+    }
+
+    await _runDecisionAction(
+      (token) => _interviewService.rejectInterview(token, widget.interviewId),
+    );
+  }
+
+  Future<void> _runDecisionAction(
+    Future<dynamic> Function(String token) action,
+  ) async {
+    setState(() => _isDecisionUpdating = true);
+
+    try {
+      final token = await _authStorage.getToken();
+      if (token == null) {
+        throw Exception('No auth token found');
+      }
+
+      await action(token);
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isDecisionUpdating = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -184,6 +257,10 @@ class _SummaryPageState extends State<SummaryPage> {
           color: AppColors.primary,
           content: _summary!.nextStep,
         ),
+        if (widget.canGenerate) ...[
+          const SizedBox(height: 16),
+          _buildDecisionCard(),
+        ],
       ],
     );
   }
@@ -690,6 +767,73 @@ class _SummaryPageState extends State<SummaryPage> {
           fontSize: AppFontSizes.body,
           color: AppColors.textPrimaryTo,
         ),
+      ),
+    );
+  }
+
+  Widget _buildDecisionCard() {
+    return CardContent(
+      header: Row(
+        children: [
+          Icon(Icons.gavel_outlined, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Text(
+            'Decision',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: AppFontSizes.subtitle,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _isDecisionUpdating ? null : _acceptCandidate,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.positiveColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: _isDecisionUpdating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Accept',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _isDecisionUpdating ? null : _rejectCandidate,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.dangerousColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                'Reject',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -12,6 +12,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 class ChatMeeting extends StatefulWidget {
   final bool isMicOn;
   final bool canSpeak;
+  final bool isCallConnected;
   final SignalingService? signalingService;
   final String? roomId;
 
@@ -19,6 +20,7 @@ class ChatMeeting extends StatefulWidget {
     super.key,
     required this.isMicOn,
     required this.canSpeak,
+    required this.isCallConnected,
     this.signalingService,
     this.roomId,
   });
@@ -51,8 +53,15 @@ class ChatMeetingState extends State<ChatMeeting> {
 
   Timer? _silenceTimer;
   Timer? _guardianTimer;
+  Timer? _listenRestartTimer;
 
   final List<ChatMessage> _messages = [];
+
+  bool get _canListen =>
+      widget.isMicOn &&
+      widget.canSpeak &&
+      widget.isCallConnected &&
+      _isInitialized;
 
   @override
   void initState() {
@@ -66,14 +75,14 @@ class ChatMeetingState extends State<ChatMeeting> {
     _guardianTimer?.cancel();
     _guardianTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted &&
-          widget.isMicOn &&
-          widget.canSpeak &&
+          _canListen &&
           !_speechToText.isListening &&
-          !_isAttempting) {
+          !_isAttempting &&
+          !(_listenRestartTimer?.isActive ?? false)) {
         debugPrint(
           'STT Guardian: Mic should be ON but is OFF. Force restarting...',
         );
-        _listen();
+        _scheduleListenStart(const Duration(milliseconds: 300));
       }
     });
   }
@@ -125,7 +134,7 @@ class ChatMeetingState extends State<ChatMeeting> {
 
   void _handleStatus(String status) {
     debugPrint(
-      'STT Status: $status (Mic: ${widget.isMicOn}, Ready: ${widget.canSpeak})',
+      'STT Status: $status (Mic: ${widget.isMicOn}, Ready: ${widget.canSpeak}, Connected: ${widget.isCallConnected})',
     );
 
     if (status == 'listening') {
@@ -143,13 +152,32 @@ class ChatMeetingState extends State<ChatMeeting> {
     _isAttempting = false;
     _resetDraftState();
 
-    if (mounted && (!widget.isMicOn || !widget.canSpeak)) {
+    if (mounted && !_canListen) {
       setState(() => _isListening = false);
     }
 
-    if (mounted && widget.isMicOn && widget.canSpeak) {
-      _listen();
+    if (mounted && _canListen) {
+      _scheduleListenStart();
     }
+  }
+
+  void _scheduleListenStart([
+    Duration delay = const Duration(milliseconds: 800),
+  ]) {
+    _listenRestartTimer?.cancel();
+    if (!_canListen) {
+      return;
+    }
+
+    _listenRestartTimer = Timer(delay, () {
+      if (!mounted ||
+          !_canListen ||
+          _speechToText.isListening ||
+          _isAttempting) {
+        return;
+      }
+      _listen();
+    });
   }
 
   @override
@@ -160,23 +188,27 @@ class ChatMeetingState extends State<ChatMeeting> {
     final micTurnedOff = !widget.isMicOn && oldWidget.isMicOn;
     final speakingEnabled = widget.canSpeak && !oldWidget.canSpeak;
     final speakingDisabled = !widget.canSpeak && oldWidget.canSpeak;
+    final callConnected = widget.isCallConnected && !oldWidget.isCallConnected;
+    final callDisconnected =
+        !widget.isCallConnected && oldWidget.isCallConnected;
 
     if (micTurnedOff) {
       _pauseForMutedMicrophone(removeDraft: true);
     }
 
-    if (speakingDisabled) {
+    if (speakingDisabled || callDisconnected) {
       _stopListeningSession(removeDraft: true);
     }
 
-    if ((micTurnedOn || speakingEnabled) && widget.isMicOn && widget.canSpeak) {
+    if ((micTurnedOn || speakingEnabled || callConnected) && _canListen) {
       _resetDraftState();
       _isAttempting = false;
       _silenceTimer?.cancel();
+      _listenRestartTimer?.cancel();
 
       if (!_speechToText.isListening) {
         _isListening = false;
-        _listen();
+        _scheduleListenStart();
       }
     }
   }
@@ -217,11 +249,13 @@ class ChatMeetingState extends State<ChatMeeting> {
 
   void _pauseForMutedMicrophone({required bool removeDraft}) {
     _silenceTimer?.cancel();
+    _listenRestartTimer?.cancel();
     _clearDraftState(removeDraft: removeDraft, markIdle: false);
   }
 
   void _stopListeningSession({required bool removeDraft}) {
     _silenceTimer?.cancel();
+    _listenRestartTimer?.cancel();
     _speechToText.stop();
     _clearDraftState(removeDraft: removeDraft, markIdle: true);
   }
@@ -230,6 +264,7 @@ class ChatMeetingState extends State<ChatMeeting> {
   void dispose() {
     _silenceTimer?.cancel();
     _guardianTimer?.cancel();
+    _listenRestartTimer?.cancel();
     _scrollController.dispose();
     _speechToText.cancel();
     super.dispose();
@@ -291,11 +326,7 @@ class ChatMeetingState extends State<ChatMeeting> {
   }
 
   void _listen() async {
-    if (_isListening ||
-        _isAttempting ||
-        !widget.isMicOn ||
-        !widget.canSpeak ||
-        !_isInitialized) {
+    if (_isListening || _isAttempting || !_canListen) {
       return;
     }
 
