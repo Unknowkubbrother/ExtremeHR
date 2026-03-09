@@ -4,6 +4,16 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from src.databases.db_connect import get_db
+from src.enums.apply_status_enum import ApplyStatusEnum
+from src.llm.interview_summary.agent import (
+    InterviewSummaryModel,
+    LLMConfigurationError as SummaryLLMConfigurationError,
+)
+from src.llm.interview_summary.service import (
+    generate_interview_summary,
+    get_saved_interview_summary,
+    save_interview_summary,
+)
 from src.llm.question_generated.agent import LLMConfigurationError
 from src.llm.question_generated.service import generate_interview_questions, save_generated_questions
 from src.routes.job_route import require_hr_role
@@ -17,6 +27,11 @@ from src.utils.llm_utils import llm_generate_to_string
 class GenerateRequest(BaseModel):
     interview_id: int
     hr_prompt: str
+
+
+class GenerateInterviewSummaryRequest(BaseModel):
+    interview_id: int
+
 
 interview_llm_router = APIRouter()
 
@@ -36,6 +51,28 @@ def _require_hr_interview_access(db: Session, interview_id: int, hr_user_id: int
         raise HTTPException(
             status_code=403,
             detail="Not authorized or interview not found",
+        )
+
+
+def _require_interview_status(
+    db: Session,
+    interview_id: int,
+    expected_status: ApplyStatusEnum,
+):
+    sql_check = text("""
+        SELECT status
+        FROM interviews
+        WHERE id = :interview_id
+    """)
+    interview = db.execute(sql_check, {"interview_id": interview_id}).first()
+
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    if interview.status != expected_status.value:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Interview must be in '{expected_status.value}' status before generating summary",
         )
 
 @interview_llm_router.get("/context/{interview_id}", tags=["Interview-llm"])
@@ -180,3 +217,61 @@ def generate_questions(
             status_code=500, 
             detail="เกิดข้อผิดพลาดในการสร้างคำถามสัมภาษณ์ (Internal Server Error)."
         )
+
+
+@interview_llm_router.post(
+    "/generate-summary",
+    tags=["Interview-llm"],
+    response_model=InterviewSummaryModel,
+)
+def generate_summary(
+    request: GenerateInterviewSummaryRequest,
+    db: Session = Depends(get_db),
+    hr_user_id: int = Depends(require_hr_role),
+):
+    import traceback
+
+    try:
+        _require_hr_interview_access(db, request.interview_id, hr_user_id)
+        _require_interview_status(
+            db,
+            request.interview_id,
+            ApplyStatusEnum.VIEWED,
+        )
+
+        summary = generate_interview_summary(
+            db=db,
+            interview_id=request.interview_id,
+        )
+        return save_interview_summary(db, request.interview_id, summary)
+    except SummaryLLMConfigurationError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="เกิดข้อผิดพลาดในการสรุปผลสัมภาษณ์ (Internal Server Error).",
+        )
+
+
+@interview_llm_router.get(
+    "/summary/{interview_id}",
+    tags=["Interview-llm"],
+    response_model=InterviewSummaryModel,
+)
+def get_interview_summary(
+    interview_id: int,
+    db: Session = Depends(get_db),
+    hr_user_id: int = Depends(require_hr_role),
+):
+    _require_hr_interview_access(db, interview_id, hr_user_id)
+
+    summary = get_saved_interview_summary(db, interview_id)
+    if summary is None:
+        raise HTTPException(status_code=404, detail="Interview summary not found")
+
+    return summary
