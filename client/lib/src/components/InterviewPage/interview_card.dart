@@ -27,6 +27,9 @@ class InterviewCard extends StatelessWidget {
   final bool isHR;
   final VoidCallback? onRefresh;
 
+  bool get _canOpenSummary =>
+      isHR && (state == Status.view || state == Status.accepted);
+
   void _handleBadgeTap(BuildContext context) async {
     if (state == Status.interview) {
       if (isHR) {
@@ -41,10 +44,15 @@ class InterviewCard extends StatelessWidget {
         );
       }
       if (onRefresh != null) onRefresh!();
-    } else if (state == Status.view || state == Status.accepted) {
+    } else if (_canOpenSummary) {
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const SummaryPage()),
+        MaterialPageRoute(
+          builder: (context) => SummaryPage(
+            interviewId: id,
+            canGenerate: state == Status.view,
+          ),
+        ),
       );
       if (onRefresh != null) onRefresh!();
     }
@@ -78,9 +86,7 @@ class InterviewCard extends StatelessWidget {
             StatusBadge(
               status: state,
               onTap:
-                  (state == Status.interview ||
-                      state == Status.view ||
-                      state == Status.accepted)
+                  (state == Status.interview || _canOpenSummary)
                   ? () => _handleBadgeTap(context)
                   : null,
             ),

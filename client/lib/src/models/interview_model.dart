@@ -115,8 +115,131 @@ class GeneratedInterviewQuestionResponse {
             (item) => GeneratedInterviewQuestion.fromJson(
               Map<String, dynamic>.from(item),
             ),
-          )
+      )
           .toList(),
     );
+  }
+}
+
+class InterviewSummaryPoint {
+  final String title;
+  final String evidence;
+
+  InterviewSummaryPoint({
+    required this.title,
+    required this.evidence,
+  });
+
+  factory InterviewSummaryPoint.fromJson(Map<String, dynamic> json) {
+    return InterviewSummaryPoint(
+      title: json['title']?.toString() ?? '',
+      evidence: json['evidence']?.toString() ?? '',
+    );
+  }
+}
+
+class InterviewSummaryEvidence {
+  final String experience;
+  final String communication;
+  final String technical;
+
+  InterviewSummaryEvidence({
+    required this.experience,
+    required this.communication,
+    required this.technical,
+  });
+
+  factory InterviewSummaryEvidence.fromJson(Map<String, dynamic> json) {
+    return InterviewSummaryEvidence(
+      experience: json['experience']?.toString() ?? '',
+      communication: json['communication']?.toString() ?? '',
+      technical: json['technical']?.toString() ?? '',
+    );
+  }
+}
+
+class InterviewSummary {
+  final double totalScore;
+  final double experienceScore;
+  final double communicationScore;
+  final double technicalScore;
+  final String recommendation;
+  final double confidence;
+  final List<InterviewSummaryPoint> strengths;
+  final List<InterviewSummaryPoint> weaknesses;
+  final List<String> redFlags;
+  final InterviewSummaryEvidence evidence;
+  final String suggestionSummary;
+  final String nextStep;
+
+  InterviewSummary({
+    required this.totalScore,
+    required this.experienceScore,
+    required this.communicationScore,
+    required this.technicalScore,
+    required this.recommendation,
+    required this.confidence,
+    required this.strengths,
+    required this.weaknesses,
+    required this.redFlags,
+    required this.evidence,
+    required this.suggestionSummary,
+    required this.nextStep,
+  });
+
+  factory InterviewSummary.fromJson(Map<String, dynamic> json) {
+    final strengths = json['strengths'];
+    final weaknesses = json['weaknesses'];
+    final redFlags = json['red_flags'];
+    final evidenceJson = json['evidence'];
+
+    return InterviewSummary(
+      totalScore: _parseDouble(json['total_score']),
+      experienceScore: _parseDouble(json['experience_score']),
+      communicationScore: _parseDouble(json['communication_score']),
+      technicalScore: _parseDouble(json['technical_score']),
+      recommendation: json['recommendation']?.toString() ?? '',
+      confidence: _parseDouble(json['confidence']),
+      strengths: strengths is List
+          ? strengths
+                .whereType<Map>()
+                .map(
+                  (item) => InterviewSummaryPoint.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .toList()
+          : const [],
+      weaknesses: weaknesses is List
+          ? weaknesses
+                .whereType<Map>()
+                .map(
+                  (item) => InterviewSummaryPoint.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .toList()
+          : const [],
+      redFlags: redFlags is List
+          ? redFlags.map((item) => item.toString()).toList()
+          : const [],
+      evidence: evidenceJson is Map<String, dynamic>
+          ? InterviewSummaryEvidence.fromJson(evidenceJson)
+          : InterviewSummaryEvidence(
+              experience: '',
+              communication: '',
+              technical: '',
+            ),
+      suggestionSummary: json['suggestion_summary']?.toString() ?? '',
+      nextStep: json['next_step']?.toString() ?? '',
+    );
+  }
+
+  static double _parseDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 }
