@@ -8,6 +8,7 @@ import 'package:client/src/services/signaling_service.dart';
 import 'package:client/src/services/webrtc_service.dart';
 import 'package:client/src/services/user_services.dart';
 import 'package:client/src/services/auth_storage.dart';
+import 'package:client/src/services/interview_service.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 class MeetingPage extends StatefulWidget {
@@ -30,6 +31,7 @@ class _MeetingPageState extends State<MeetingPage> {
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
 
   bool _isRemoteConnected = false;
+  bool _isRoomReady = false;
   bool _isInitialized = false;
 
   String? _currentUserRole;
@@ -41,6 +43,65 @@ class _MeetingPageState extends State<MeetingPage> {
   void initState() {
     super.initState();
     _initWebRTC();
+  }
+
+  void _syncMicrophoneState() {
+    _webrtcService.toggleMicrophone(!_isMicOn || !_isRoomReady);
+  }
+
+  Future<void> _handleSignalingMessage(Map<String, dynamic> message) async {
+    if (!mounted) return;
+
+    if (message['type'] == 'webrtc_sdp') {
+      if (message['sdp_type'] == 'offer') {
+        await _webrtcService.handleRemoteDescription('offer', message['sdp']);
+        await _webrtcService.createAnswer(widget.id, _currentUserId.toString());
+      } else if (message['sdp_type'] == 'answer') {
+        await _webrtcService.handleRemoteDescription('answer', message['sdp']);
+      }
+      return;
+    }
+
+    if (message['type'] == 'webrtc_ice') {
+      await _webrtcService.handleIceCandidate(message);
+      return;
+    }
+
+    if (message['type'] == 'user_left') {
+      setState(() {
+        _isRemoteConnected = false;
+        _isRoomReady = false;
+        _remoteRenderer.srcObject = null;
+      });
+      _syncMicrophoneState();
+      return;
+    }
+
+    if (message['type'] == 'room_status') {
+      final wasReady = _isRoomReady;
+      final isReady = message['is_ready'] == true;
+
+      setState(() {
+        _isRoomReady = isReady;
+      });
+      _syncMicrophoneState();
+
+      if (!wasReady &&
+          isReady &&
+          _currentUserRole == 'hr' &&
+          _currentUserId != null) {
+        await _webrtcService.createOffer(
+          widget.id,
+          _currentUserId.toString(),
+          iceRestart: true,
+        );
+      }
+      return;
+    }
+
+    if (message['type'] == 'transcript') {
+      _chatKey.currentState?.handleRemoteTranscript(message);
+    }
   }
 
   Future<void> _initWebRTC() async {
@@ -57,6 +118,8 @@ class _MeetingPageState extends State<MeetingPage> {
         final user = await UserServices().me(token);
         _currentUserId = user.id;
         _currentUserRole = user.role.toLowerCase() == "hr" ? "hr" : "candidate";
+
+        await InterviewService().getInterviewContext(token, widget.id);
       }
     } catch (e) {
       _currentUserId = 1;
@@ -77,47 +140,22 @@ class _MeetingPageState extends State<MeetingPage> {
     };
 
     _signalingService.onMessageReceived = (message) {
-      if (!mounted) return;
-      if (message['type'] == 'webrtc_sdp') {
-        if (message['sdp_type'] == 'offer') {
-          _webrtcService.handleRemoteDescription('offer', message['sdp']);
-          _webrtcService.createAnswer(widget.id, _currentUserId.toString());
-        } else if (message['sdp_type'] == 'answer') {
-          _webrtcService.handleRemoteDescription('answer', message['sdp']);
-        }
-      } else if (message['type'] == 'webrtc_ice') {
-        _webrtcService.handleIceCandidate(message);
-      } else if (message['type'] == 'user_left') {
-        setState(() {
-          _isRemoteConnected = false;
-          _remoteRenderer.srcObject = null;
-        });
-      } else if (message['type'] == 'transcript') {
-        _chatKey.currentState?.handleRemoteTranscript(message);
-      }
+      _handleSignalingMessage(message);
     };
-
-    _signalingService.connect(
-      widget.id,
-      _currentUserId.toString(),
-      _currentUserRole!,
-    );
 
     await _webrtcService.initLocalStream();
     await _webrtcService.initPeerConnection(
       widget.id,
       _currentUserId.toString(),
     );
+    _syncMicrophoneState();
+    _signalingService.connect(
+      widget.id,
+      _currentUserId.toString(),
+      _currentUserRole!,
+    );
 
     setState(() => _isInitialized = true);
-
-    if (_currentUserRole == 'hr') {
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          _webrtcService.createOffer(widget.id, _currentUserId.toString());
-        }
-      });
-    }
   }
 
   @override
@@ -131,9 +169,7 @@ class _MeetingPageState extends State<MeetingPage> {
 
   void _toggleMic() {
     setState(() => _isMicOn = !_isMicOn);
-    _webrtcService.toggleMicrophone(
-      !_isMicOn,
-    ); // In WebRTC, pass true to mute, false to unmute. Actually toggleMicrophone(isMuted). So `!_isMicOn`.
+    _syncMicrophoneState();
   }
 
   void _toggleCamera() {
@@ -185,6 +221,7 @@ class _MeetingPageState extends State<MeetingPage> {
                   child: ChatMeeting(
                     key: _chatKey,
                     isMicOn: _isMicOn,
+                    canSpeak: _isRoomReady,
                     signalingService: _signalingService,
                     roomId: widget.id,
                   ),
@@ -203,7 +240,7 @@ class _MeetingPageState extends State<MeetingPage> {
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -215,8 +252,10 @@ class _MeetingPageState extends State<MeetingPage> {
             // Mic Button
             _buildControlButton(
               icon: _isMicOn ? Icons.mic : Icons.mic_off,
-              color: _isMicOn ? AppColors.primary : Colors.grey,
-              onPressed: _toggleMic,
+              color: _isRoomReady
+                  ? (_isMicOn ? AppColors.primary : Colors.grey)
+                  : Colors.grey,
+              onPressed: _isRoomReady ? _toggleMic : null,
             ),
             const SizedBox(width: 8),
             // Camera Button
@@ -257,14 +296,14 @@ class _MeetingPageState extends State<MeetingPage> {
   Widget _buildControlButton({
     required IconData icon,
     required Color color,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     return IconButton(
       onPressed: onPressed,
       icon: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: color, size: 28),
