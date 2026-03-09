@@ -8,6 +8,7 @@ import 'package:client/src/services/signaling_service.dart';
 import 'package:client/src/services/webrtc_service.dart';
 import 'package:client/src/services/user_services.dart';
 import 'package:client/src/services/auth_storage.dart';
+import 'package:client/src/services/interview_service.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 class MeetingPage extends StatefulWidget {
@@ -57,6 +58,8 @@ class _MeetingPageState extends State<MeetingPage> {
         final user = await UserServices().me(token);
         _currentUserId = user.id;
         _currentUserRole = user.role.toLowerCase() == "hr" ? "hr" : "candidate";
+
+        await InterviewService().getInterviewContext(token, widget.id);
       }
     } catch (e) {
       _currentUserId = 1;

@@ -40,6 +40,16 @@ class ConnectionManager:
 manager = ConnectionManager()
 chat_histories = dict()
 
+
+def _format_chat_history_message(message_text: str, role: str | None) -> str:
+    text = (message_text or "").strip()
+    normalized_role = (role or "").strip().upper()
+
+    if normalized_role == "AI" and text and not text.startswith("[AI]"):
+        return f"[AI] {text}"
+
+    return text
+
 @interview_ws_router.websocket("/{room_id}/{user_id}")
 async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str , db: Session = Depends(get_db)):
     await manager.connect(websocket, room_id, user_id)
@@ -62,6 +72,7 @@ async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str , 
                     chat_histories[room_id].append({
                         "user_id": int(message.get("speaker_id")),
                         "message": message.get("text"),
+                        "role": message.get("role"),
                         "timestamp": message.get("timestamp")
                     })
                     await manager.broadcast_to_others(room_id, user_id, message)
@@ -86,9 +97,11 @@ async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str , 
                 db.execute(sql_insert, {
                     "interview_id": int(room_id),
                     "user_id": item["user_id"],
-                    "message": item["message"],
+                    "message": _format_chat_history_message(
+                        item["message"],
+                        item.get("role"),
+                    ),
                     "created_at": datetime.fromisoformat(item["timestamp"])
                 })
             db.commit()
             chat_histories[room_id].clear()
-

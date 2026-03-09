@@ -28,6 +28,9 @@ class ChatMeeting extends StatefulWidget {
 class ChatMeetingState extends State<ChatMeeting> {
   final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speechToText = stt.SpeechToText();
+  static const String _aiRole = 'AI';
+  static const String _aiUsername = 'ai';
+  static const String _aiFullName = 'AI';
   bool _isListening = false;
   bool _isAttempting = false;
   String? _currentUserRole;
@@ -192,6 +195,51 @@ class ChatMeetingState extends State<ChatMeeting> {
     }
   }
 
+  String _currentTimeLabel() {
+    final now = DateTime.now();
+    return "${now.minute}:${now.second.toString().padLeft(2, '0')}";
+  }
+
+  ChatMessage _buildAiChatMessage(String text, {String? time}) {
+    return ChatMessage(
+      role: _aiRole,
+      time: time ?? _currentTimeLabel(),
+      text: text,
+      userId: _currentUserId ?? 1,
+      username: _aiUsername,
+      fullName: _aiFullName,
+    );
+  }
+
+  void addAiMessage(String text) {
+    final trimmedText = text.trim();
+    if (trimmedText.isEmpty || !mounted) {
+      return;
+    }
+
+    final time = _currentTimeLabel();
+
+    setState(() {
+      _messages.add(_buildAiChatMessage(trimmedText, time: time));
+    });
+    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+
+    if (widget.signalingService != null &&
+        widget.roomId != null &&
+        _currentUserId != null) {
+      widget.signalingService!.sendMessage({
+        'type': 'transcript',
+        'room_id': widget.roomId,
+        'speaker_id': _currentUserId.toString(),
+        'role': _aiRole,
+        'text': trimmedText,
+        'is_final': true,
+        'timestamp': DateTime.now().toIso8601String(),
+        'time': time,
+      });
+    }
+  }
+
   void _listen() async {
     if (_isListening || _isAttempting || !widget.isMicOn || !_isInitialized) {
       return;
@@ -203,11 +251,13 @@ class ChatMeetingState extends State<ChatMeeting> {
     try {
       await _speechToText.listen(
         localeId: 'th_TH',
-        listenMode: stt.ListenMode.dictation,
         pauseFor: const Duration(hours: 1),
         listenFor: const Duration(hours: 1),
-        cancelOnError: false,
-        partialResults: true,
+        listenOptions: stt.SpeechListenOptions(
+          listenMode: stt.ListenMode.dictation,
+          cancelOnError: false,
+          partialResults: true,
+        ),
         onResult: (val) {
           if (!mounted || !widget.isMicOn) return;
 
@@ -265,8 +315,7 @@ class ChatMeetingState extends State<ChatMeeting> {
 
           setState(() {
             _currentText = newText;
-            String time =
-                "${DateTime.now().minute}:${DateTime.now().second.toString().padLeft(2, '0')}";
+            final time = _currentTimeLabel();
 
             if (_isNewMessage) {
               _messages.add(
@@ -302,19 +351,33 @@ class ChatMeetingState extends State<ChatMeeting> {
 
   void handleRemoteTranscript(Map<String, dynamic> message) {
     if (!mounted) return;
+    final role = message['role']?.toString() ?? 'HR';
+    final normalizedRole = role.toUpperCase();
+    final isAi = normalizedRole == _aiRole;
+
+    String username;
+    String fullName;
+
+    if (isAi) {
+      username = _aiUsername;
+      fullName = _aiFullName;
+    } else if (role.toLowerCase() == 'hr') {
+      username = 'HR Manager';
+      fullName = 'HR Manager';
+    } else {
+      username = 'Candidate';
+      fullName = 'Candidate Profile';
+    }
+
     setState(() {
       _messages.add(
         ChatMessage(
-          role: message['role']?.toString() ?? 'HR',
+          role: role,
           time: message['time']?.toString() ?? '0:00',
           text: message['text']?.toString() ?? '',
           userId: int.tryParse(message['speaker_id']?.toString() ?? '2') ?? 2,
-          username: message['role']?.toString() == 'hr'
-              ? 'HR Manager'
-              : 'Candidate',
-          fullName: message['role']?.toString() == 'hr'
-              ? 'HR Manager'
-              : 'Candidate Profile',
+          username: username,
+          fullName: fullName,
         ),
       );
     });

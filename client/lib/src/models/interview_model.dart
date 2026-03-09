@@ -68,3 +68,55 @@ class ApplyJobModel {
     return ApplyJobModel(isSuccess: json['isSuccess']);
   }
 }
+
+class GeneratedInterviewQuestion {
+  final String interviewQuestion;
+  final String difficulty;
+  final String competency;
+
+  GeneratedInterviewQuestion({
+    required this.interviewQuestion,
+    required this.difficulty,
+    required this.competency,
+  });
+
+  factory GeneratedInterviewQuestion.fromJson(Map<String, dynamic> json) {
+    return GeneratedInterviewQuestion(
+      interviewQuestion: json['interview_question']?.toString() ?? '',
+      difficulty: json['difficulty']?.toString() ?? '',
+      competency: json['competency']?.toString() ?? '',
+    );
+  }
+}
+
+class GeneratedInterviewQuestionResponse {
+  final String message;
+  final List<GeneratedInterviewQuestion> questions;
+
+  GeneratedInterviewQuestionResponse({
+    required this.message,
+    required this.questions,
+  });
+
+  factory GeneratedInterviewQuestionResponse.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final wrapper = json['questions'];
+    final rawQuestions = wrapper is Map<String, dynamic>
+        ? wrapper['questions']
+        : null;
+    final questionList = rawQuestions is List ? rawQuestions : const [];
+
+    return GeneratedInterviewQuestionResponse(
+      message: json['message']?.toString() ?? '',
+      questions: questionList
+          .whereType<Map>()
+          .map(
+            (item) => GeneratedInterviewQuestion.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
