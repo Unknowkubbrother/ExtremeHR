@@ -127,4 +127,75 @@ class InterviewService {
       throw Exception(jsonDecode(response.body)['detail']);
     }
   }
+
+  Future<void> getInterviewContext(String token, String interviewId) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.get(
+      Uri.parse('$apiUrl/interview-llm/context/$interviewId'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to get interview context');
+    }
+  }
+
+  Future<GeneratedInterviewQuestionResponse> generateInterviewQuestions(
+    String token,
+    String interviewId,
+    String hrPrompt,
+  ) async {
+    final parsedInterviewId = int.tryParse(interviewId);
+    if (parsedInterviewId == null) {
+      throw Exception('Invalid interview id');
+    }
+
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.post(
+      Uri.parse('$apiUrl/interview-llm/generate-question'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'interview_id': parsedInterviewId,
+        'hr_prompt': hrPrompt,
+      }),
+    );
+
+    dynamic responseBody;
+    try {
+      responseBody = jsonDecode(response.body);
+    } catch (_) {
+      responseBody = response.body;
+    }
+
+    if (response.statusCode == 200 && responseBody is Map<String, dynamic>) {
+      return GeneratedInterviewQuestionResponse.fromJson(responseBody);
+    }
+
+    throw Exception(_extractErrorMessage(responseBody));
+  }
+
+  String _extractErrorMessage(dynamic responseBody) {
+    if (responseBody is Map<String, dynamic>) {
+      final detail = responseBody['detail'];
+      if (detail is String && detail.isNotEmpty) {
+        return detail;
+      }
+
+      final message = responseBody['message'];
+      if (message is String && message.isNotEmpty) {
+        return message;
+      }
+    }
+
+    if (responseBody is String && responseBody.isNotEmpty) {
+      return responseBody;
+    }
+
+    return 'Failed to generate interview questions';
+  }
 }

@@ -9,10 +9,22 @@ class ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAi = message.role.toUpperCase() == 'AI';
     final isMe = currentUserId != null && message.userId == currentUserId;
+    final isRightAligned = isMe;
+    final bubbleColor = isAi
+        ? Colors.amber.shade50
+        : (isMe ? Colors.indigo.shade500 : Colors.blue.shade50);
+    final primaryTextColor = isAi
+        ? Colors.black87
+        : (isMe ? Colors.white : Colors.black87);
+    final secondaryTextColor = isAi
+        ? Colors.black45
+        : (isMe ? Colors.white70 : Colors.black54);
+    final nameColor = isAi ? Colors.orange.shade800 : primaryTextColor;
 
     return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isRightAligned ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(16),
@@ -20,16 +32,16 @@ class ChatBubble extends StatelessWidget {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         decoration: BoxDecoration(
-          color: isMe ? Colors.indigo.shade500 : Colors.blue.shade50,
+          color: bubbleColor,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(!isMe ? 0 : 16),
-            bottomRight: Radius.circular(!isMe ? 16 : 0),
+            bottomLeft: Radius.circular(isRightAligned ? 16 : 0),
+            bottomRight: Radius.circular(isRightAligned ? 0 : 16),
           ),
         ),
         child: Column(
-          crossAxisAlignment: isMe
+          crossAxisAlignment: isRightAligned
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
           children: [
@@ -41,31 +53,25 @@ class ChatBubble extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
-                    color: isMe ? Colors.white : Colors.black87,
+                    color: nameColor,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   '(@${message.username})',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isMe ? Colors.white70 : Colors.black54,
-                  ),
+                  style: TextStyle(fontSize: 10, color: secondaryTextColor),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   message.time,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isMe ? Colors.white70 : Colors.black54,
-                  ),
+                  style: TextStyle(fontSize: 10, color: secondaryTextColor),
                 ),
               ],
             ),
             const SizedBox(height: 6),
             Text(
               message.text,
-              style: TextStyle(color: isMe ? Colors.white : Colors.black87),
+              style: TextStyle(color: primaryTextColor),
               textAlign: TextAlign.left,
             ),
           ],

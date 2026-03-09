@@ -13,7 +13,6 @@ class SignalingService {
     _roomId = roomId;
     _userId = userId;
 
-    // Convert http/https to ws/wss
     var apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
     if (apiUrl.startsWith('https://')) {
       apiUrl = apiUrl.replaceFirst('https://', 'wss://');
@@ -25,14 +24,6 @@ class SignalingService {
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-
-      // Join Room Event
-      sendMessage({
-        'type': 'join',
-        'room_id': _roomId,
-        'user_id': _userId,
-        'role': role,
-      });
 
       _channel?.stream.listen(
         (data) {
@@ -47,6 +38,13 @@ class SignalingService {
           if (kDebugMode) print('WS Closed');
         },
       );
+
+      sendMessage({
+        'type': 'join',
+        'room_id': _roomId,
+        'user_id': _userId,
+        'role': role,
+      });
     } catch (e) {
       if (kDebugMode) print('WS Connection Error: $e');
     }
