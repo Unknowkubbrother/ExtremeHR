@@ -36,6 +36,8 @@ def build_tools(db: Session):
                 FROM interviews i
                 JOIN jobs j ON i.job_id = j.id
                 WHERE i.id = :id
+                ORDER BY RANDOM()
+                LIMIT 5
             """)
             row = db.execute(query, {"id": interview_id}).first()
             if not row:
@@ -58,6 +60,8 @@ def build_tools(db: Session):
                 JOIN resumes r ON u.id = r.user_id
                 JOIN resume_skills s ON r.id = s.resume_id
                 WHERE i.id = :id
+                ORDER BY RANDOM()
+                LIMIT 5
             """)
             rows = db.execute(query, {"id": interview_id}).fetchall()
             return json.dumps({

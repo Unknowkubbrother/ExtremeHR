@@ -122,6 +122,6 @@ def build_agent(tools):
         llm=llm,
         agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
         handle_parsing_errors=True,
-        verbose=False
+        verbose=True
     )
     return agent_executor
