@@ -50,6 +50,15 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
     cancelColor: AppColors.textPrimaryTo,
   );
 
+  final ConfirmDialog _acceptDialog = ConfirmDialog(
+    title: "Accept this candidate?",
+    content: "This candidate will move to the accepted stage.",
+    confirmText: "Accept",
+    cancelText: "Cancel",
+    confirmColor: Colors.green,
+    cancelColor: AppColors.textPrimaryTo,
+  );
+
   PersonalInformation? _resume;
   bool _isLoading = true;
   bool _isUpdating = false;
@@ -146,8 +155,45 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
     }
   }
 
+  Future<void> _accept() async {
+    final result = await _acceptDialog.show(context);
+    if (result != true) return;
+
+    setState(() => _isUpdating = true);
+    try {
+      final token = await _authService.getToken();
+      if (token != null) {
+        await _interviewService.acceptInterview(token, widget.interviewId);
+        if (mounted) {
+          setState(() => _currentStatus = Status.accepted);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Candidate accepted')));
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdating = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isWaitingStatus = _currentStatus == Status.waiting;
+    final isViewedStatus = _currentStatus == Status.view;
+
     return Scaffold(
       backgroundColor: AppColors.primary,
       appBar: AppBar(
@@ -214,8 +260,7 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
               ],
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton:
-          (_currentStatus != Status.waiting && _currentStatus != Status.view)
+      floatingActionButton: (!isWaitingStatus && !isViewedStatus)
           ? null
           : Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -233,9 +278,9 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
                       ),
                       onPressed: _isUpdating || _resume == null
                           ? null
-                          : () => _interview(),
-                      child: const Text(
-                        "Interview",
+                          : (isWaitingStatus ? _interview : _accept),
+                      child: Text(
+                        isWaitingStatus ? "Interview" : "Accept",
                         style: TextStyle(
                           fontSize: AppFontSizes.body,
                           fontWeight: FontWeight.bold,
@@ -339,7 +384,7 @@ class _CandidateResumePageState extends State<CandidateResumePage> {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(skill, style: TextStyle(color: AppColors.primary)),

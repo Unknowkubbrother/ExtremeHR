@@ -35,6 +35,7 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
   bool _isRemoteConnected = false;
   bool _isRoomReady = false;
   bool _isInitialized = false;
+  bool _isEndingInterview = false;
 
   String? _currentUserRole;
   int? _currentUserId;
@@ -349,7 +350,9 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                 ),
-                onPressed: () async {
+                onPressed: _isEndingInterview
+                    ? null
+                    : () async {
                   final navigator = Navigator.of(context);
                   final bool? confirmed = await const ConfirmDialog(
                     title: "End Interview",
@@ -363,21 +366,50 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
                   if (confirmed != true) {
                     return;
                   }
-                  if (!mounted) {
+                  if (!context.mounted) {
                     return;
                   }
 
-                  await _endInterview();
-                  if (!mounted) {
-                    return;
-                  }
+                  setState(() => _isEndingInterview = true);
 
-                  navigator.pop();
+                  try {
+                    await _endInterview();
+                    if (!mounted) {
+                      return;
+                    }
+
+                    navigator.pop();
+                  } catch (e) {
+                    if (!context.mounted) {
+                      return;
+                    }
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          e.toString().replaceFirst('Exception: ', ''),
+                        ),
+                      ),
+                    );
+                  } finally {
+                    if (mounted) {
+                      setState(() => _isEndingInterview = false);
+                    }
+                  }
                 },
-                icon: const Icon(Icons.stop_circle_outlined),
-                label: const Text(
-                  "End",
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                icon: _isEndingInterview
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.stop_circle_outlined),
+                label: Text(
+                  _isEndingInterview ? "Ending..." : "End",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
