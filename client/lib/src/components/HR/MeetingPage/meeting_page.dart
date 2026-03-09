@@ -271,21 +271,18 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Mic Button
             _buildControlButton(
               icon: _isMicOn ? Icons.mic : Icons.mic_off,
               color: _isMicOn ? AppColors.primary : Colors.grey,
               onPressed: _toggleMic,
             ),
             const SizedBox(width: 8),
-            // Camera Button
             _buildControlButton(
               icon: _isCameraOn ? Icons.videocam : Icons.videocam_off,
               color: _isCameraOn ? AppColors.primary : Colors.grey,
               onPressed: _toggleCamera,
             ),
             const SizedBox(width: 16),
-            // End Button
             SizedBox(
               height: 48,
               child: ElevatedButton.icon(

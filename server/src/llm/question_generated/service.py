@@ -341,11 +341,6 @@ JSON PAYLOAD:
     except Exception:
         return question_payload
 
-def get_recent_questions_text(history: list) -> str:
-    if not history:
-        return "No previous questions in this session."
-    return "\n".join([msg["content"] for msg in history if msg["role"] == "assistant"])
-
 def get_recent_messages(db: Session, interview_id: int, limit: int = 5) -> str:
     query = text("""
         SELECT message 
@@ -357,21 +352,16 @@ def get_recent_messages(db: Session, interview_id: int, limit: int = 5) -> str:
     rows = db.execute(query, {"id": interview_id, "limit": limit}).fetchall()
     if not rows:
         return "No recent messages."
-    
-    # Reverse to show in chronological order
+
     messages = [r.message for r in reversed(rows)]
     return "\n".join(messages)
 
 def summarize_hr_style(db: Session, interview_id: int, new_prompt: str) -> str:
-    # 1) Get existing interest (This acts as the persistent memory)
     query = text("SELECT hr_interest FROM interviews WHERE id = :id")
     row = db.execute(query, {"id": interview_id}).first()
     old_profile = row.hr_interest if row else ""
 
-    # 2) Use LLM to merge instructions efficiently (Direct call, no agent)
     llm = get_llm(temperature=0.2)
-    
-    # We provide a structured merging prompt
     summary_prompt = f"""
 Current HR Profile (Context Only):
 {old_profile or "None"}
@@ -396,17 +386,13 @@ OUTPUT:
 Return ONLY the updated HR Profile text.
 Each sentence must be under 15 words.
 """
-    # Direct call to LLM
     response = llm.invoke(summary_prompt)
     summary = response.content.strip()
 
-    print(summary)
-
-    # 3) Save back to DB (Persistent Memory)
     update_query = text("UPDATE interviews SET hr_interest = :summary WHERE id = :id")
     db.execute(update_query, {"summary": summary, "id": interview_id})
     db.commit()
-    
+
     return summary
 
 def build_baseline_context(db: Session, interview_id: int) -> str:
@@ -455,28 +441,9 @@ def generate_interview_questions(
     if not db.execute(query, {"id": interview_id}).first():
         raise LookupError("Interview not found")
 
-    # 1) Build baseline context
     baseline_context = build_baseline_context(db, interview_id)
-    
-    # 2) Update HR interest profile (Memory)
     hr_profile = summarize_hr_style(db, interview_id, hr_prompt)
-    
-    # 3) Fetch previous questions specifically to prevent repetition in Agent Memory
-    prev_q_query = text("""
-        SELECT question FROM interview_questions 
-        WHERE interview_id = :id 
-        ORDER BY id DESC LIMIT 3
-    """)
-    prev_q_rows = db.execute(prev_q_query, {"id": interview_id}).fetchall()
-    
-    formatted_history = []
-    # We add them as 'assistant' messages because these were the LLM's previous outputs
-    for r in reversed(prev_q_rows):
-        formatted_history.append({"role": "assistant", "content": f"Previously generated question: {r.question}"})
-
     tools = build_tools(db)
-    
-    # 4) Generate Questions
     current_prompt = f"""
 You are an interview question generator.
 
@@ -530,20 +497,18 @@ Return ONLY a valid JSON object.
 }}
 """
 
-    # We pass the history of previous questions so the memory is "active"
-    agent = build_agent(tools) # No longer passing chat_history here
-    
+    agent = build_agent(tools)
+
     try:
         result = agent.run(current_prompt)
         parsed_data = _parse_llm_question_response(result, hr_prompt)
         parsed_data = _align_question_payload_language(parsed_data, hr_prompt)
 
-        # This will raise ValidationError if JSON is incomplete
         return QuestionCandidates.model_validate(parsed_data)
     except Exception as e:
         print("--- RAW LLM OUTPUT START ---")
         try:
-            print(result) # Show what we got if result was assigned
+            print(result)
         except NameError:
             print("No result obtained from agent.")
         print("--- RAW LLM OUTPUT END ---")
@@ -582,7 +547,7 @@ def save_generated_questions(
             {
                 "interview_id": interview_id,
                 "question": q.interview_question,
-                "expected_answer": q.expected_answer,   # ต้องเป็น list ถ้า column เป็น ARRAY(String)
+                "expected_answer": q.expected_answer,
                 "user_answer": None,
                 "score": None,
                 "reason": None,

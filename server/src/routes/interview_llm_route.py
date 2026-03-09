@@ -20,7 +20,6 @@ class GenerateRequest(BaseModel):
 
 interview_llm_router = APIRouter()
 
-
 def _require_hr_interview_access(db: Session, interview_id: int, hr_user_id: int):
     sql_check = text("""
         SELECT i.id
@@ -39,7 +38,6 @@ def _require_hr_interview_access(db: Session, interview_id: int, hr_user_id: int
             detail="Not authorized or interview not found",
         )
 
-#CONTEXT INTERVIEW
 @interview_llm_router.get("/context/{interview_id}", tags=["Interview-llm"])
 async def get_interview_context(interview_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     sql_check_user = text("SELECT role FROM users WHERE id = :user_id")
@@ -156,8 +154,7 @@ def generate_questions(
     hr_user_id: int = Depends(require_hr_role),
 ):
     import traceback
-    import sys
-    
+
     try:
         _require_hr_interview_access(db, request.interview_id, hr_user_id)
 
@@ -178,7 +175,7 @@ def generate_questions(
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         traceback.print_exc()
-        
+
         raise HTTPException(
             status_code=500, 
             detail="เกิดข้อผิดพลาดในการสร้างคำถามสัมภาษณ์ (Internal Server Error)."

@@ -38,13 +38,12 @@ class ChatMeetingState extends State<ChatMeeting> {
   int? _currentUserId;
   String? _currentUserFullName;
   String _currentText = "";
-  String _lastDisplayedText = ""; // Debounce: skip if text didn't change
+  String _lastDisplayedText = "";
   bool _isNewMessage = true;
   bool _isInitialized = false;
   Timer? _silenceTimer;
   Timer? _guardianTimer;
-  int _committedLength =
-      0; // Track how much text is already in previous bubbles
+  int _committedLength = 0;
 
   final List<ChatMessage> _messages = [];
 
@@ -84,14 +83,12 @@ class ChatMeetingState extends State<ChatMeeting> {
             _currentUserRole = user.role.toUpperCase() == "HR"
                 ? "HR"
                 : "Candidate";
-            _currentUserFullName =
-                user.username; // Use username as fallback for full name
+            _currentUserFullName = user.username;
           });
         }
       }
     } catch (e) {
       debugPrint('Error fetching identity: $e');
-      // Fallback
       if (mounted) {
         setState(() {
           _currentUserRole = "HR";
@@ -125,21 +122,18 @@ class ChatMeetingState extends State<ChatMeeting> {
     } else if (status == 'done' || status == 'notListening') {
       _isAttempting = false;
 
-      // When engine restarts naturally, reset committed offset
       if (mounted) {
         _committedLength = 0;
         _isNewMessage = true;
         _currentText = "";
       }
 
-      // PROTECT UI: Keep _isListening TRUE if the widget mic is still ON.
       if (mounted && !widget.isMicOn) {
         setState(() => _isListening = false);
       }
 
-      // INSTANT RECOVERY:
       if (mounted && widget.isMicOn) {
-        _listen(); // Re-trigger immediately
+        _listen();
       }
     }
   }
@@ -149,7 +143,6 @@ class ChatMeetingState extends State<ChatMeeting> {
     super.didUpdateWidget(oldWidget);
     if (widget.isMicOn != oldWidget.isMicOn) {
       if (widget.isMicOn) {
-        // Mic turned ON — full reset and start fresh
         _committedLength = 0;
         _isNewMessage = true;
         _currentText = "";
@@ -159,7 +152,6 @@ class ChatMeetingState extends State<ChatMeeting> {
         _silenceTimer?.cancel();
         _listen();
       } else {
-        // Mic turned OFF — stop everything cleanly
         _silenceTimer?.cancel();
         _speechToText.stop();
         if (mounted) {
@@ -264,14 +256,11 @@ class ChatMeetingState extends State<ChatMeeting> {
           final fullText = val.recognizedWords;
           if (fullText.trim().isEmpty) return;
 
-          // --- Noise filtering ---
-          // Skip low-confidence results (0 means unknown/partial, so allow it)
           if (val.confidence > 0 && val.confidence < 0.3) {
             debugPrint('STT: Skipped low confidence (${val.confidence})');
             return;
           }
 
-          // Extract only the NEW portion after committed text
           String newText;
           if (fullText.length > _committedLength) {
             newText = fullText.substring(_committedLength).trim();
@@ -280,11 +269,9 @@ class ChatMeetingState extends State<ChatMeeting> {
           }
           if (newText.isEmpty) return;
 
-          // Debounce: skip if the displayed text hasn't actually changed
           if (newText == _lastDisplayedText) return;
           _lastDisplayedText = newText;
 
-          // Reset silence timer — after 2s silence, commit this bubble
           _silenceTimer?.cancel();
           _silenceTimer = Timer(const Duration(seconds: 2), () {
             if (mounted && _currentText.isNotEmpty) {

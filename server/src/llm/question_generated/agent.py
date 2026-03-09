@@ -5,15 +5,11 @@ from typing import List, Literal
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain_classic.agents import initialize_agent, Tool
+from langchain_classic.agents import initialize_agent
 from langchain_classic.agents.agent_types import AgentType
 from langchain_classic.memory import ConversationBufferMemory
 
 load_dotenv()
-
-# =========================================================
-# 1) Structured output schema
-# =========================================================
 
 class QuestionCandidate(BaseModel):
     interview_question: str = Field(..., description="The interview question")
@@ -24,10 +20,6 @@ class QuestionCandidate(BaseModel):
 
 class QuestionCandidates(BaseModel):
     questions: List[QuestionCandidate]
-
-# =========================================================
-# 2) LLM Utils
-# =========================================================
 
 class LLMConfigurationError(RuntimeError):
     pass
@@ -71,15 +63,13 @@ def get_llm(temperature=0.2):
 
 def extract_json_text(raw_text: str) -> str:
     text = raw_text.strip()
-    
-    # 1) Try parsing the entire text first
+
     try:
         json.loads(text)
         return text
     except Exception:
         pass
 
-    # 2) Try to find content within backticks
     fenced = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if fenced:
         inner_text = fenced.group(1).strip()
@@ -87,13 +77,11 @@ def extract_json_text(raw_text: str) -> str:
             json.loads(inner_text)
             return inner_text
         except Exception:
-            text = inner_text # Fallback to searching within inner_text
+            text = inner_text
 
-    # 3) Robustly find the first JSON object or array
-    # Find the first occurrence of '{' or '['
     first_dict = text.find('{')
     first_list = text.find('[')
-    
+
     start_index = -1
     if first_dict != -1 and (first_list == -1 or first_dict < first_list):
         start_index = first_dict
@@ -103,14 +91,12 @@ def extract_json_text(raw_text: str) -> str:
     if start_index == -1:
         raise ValueError("No '{' or '[' found in LLM output")
 
-    # Use JSONDecoder to find where the JSON structure ends
     trimmed_text = text[start_index:]
     decoder = json.JSONDecoder()
     try:
         obj, end_index = decoder.raw_decode(trimmed_text)
         return trimmed_text[:end_index].strip()
     except Exception as e:
-        # Final fallback: generic greedy regex if raw_decode fails
         match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
         if match:
             return match.group(1).strip()

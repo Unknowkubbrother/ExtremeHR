@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 class ConnectionManager:
     def __init__(self):
-        # room_id -> user_id -> websocket
         self.active_rooms: dict[str, dict[str, WebSocket]] = {}
 
     async def connect(self, websocket: WebSocket, room_id: str, user_id: str):
