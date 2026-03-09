@@ -1,13 +1,15 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect , Depends
-import json
 import logging
+import json
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from sqlalchemy.orm import Session
 
 from src.databases.db_connect import get_db
-from sqlalchemy.orm import Session
-from datetime import datetime
 
 interview_ws_router = APIRouter()
 logger = logging.getLogger(__name__)
+
 
 class ConnectionManager:
     def __init__(self):
@@ -36,8 +38,17 @@ class ConnectionManager:
                     except Exception as e:
                         logger.error(f"Error sending message to {uid}: {e}")
 
+    async def broadcast_to_room(self, room_id: str, message: dict):
+        if room_id in self.active_rooms:
+            for uid, ws in self.active_rooms[room_id].items():
+                try:
+                    await ws.send_json(message)
+                except Exception as e:
+                    logger.error(f"Error sending room message to {uid}: {e}")
+
 manager = ConnectionManager()
 chat_histories = dict()
+room_roles: dict[str, dict[str, str]] = {}
 
 
 def _format_chat_history_message(message_text: str, role: str | None) -> str:
@@ -49,8 +60,40 @@ def _format_chat_history_message(message_text: str, role: str | None) -> str:
 
     return text
 
+
+def _normalize_room_role(role: str | None) -> str | None:
+    normalized_role = (role or "").strip().lower()
+    if normalized_role in {"hr", "candidate"}:
+        return normalized_role
+    return None
+
+
+def _room_is_ready(room_id: str) -> bool:
+    roles = set(room_roles.get(room_id, {}).values())
+    return "hr" in roles and "candidate" in roles
+
+
+async def _broadcast_room_status(room_id: str):
+    participants = room_roles.get(room_id, {})
+    await manager.broadcast_to_room(
+        room_id,
+        {
+            "type": "room_status",
+            "room_id": room_id,
+            "is_ready": _room_is_ready(room_id),
+            "participant_count": len(participants),
+            "roles": list(participants.values()),
+        },
+    )
+
+
 @interview_ws_router.websocket("/{room_id}/{user_id}")
-async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str , db: Session = Depends(get_db)):
+async def interview_endpoint(
+    websocket: WebSocket,
+    room_id: str,
+    user_id: str,
+    db: Session = Depends(get_db),
+):
     await manager.connect(websocket, room_id, user_id)
     try:
         while True:
@@ -61,33 +104,51 @@ async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str , 
                 msg_type = message.get("type")
 
                 if msg_type in ["webrtc_sdp", "webrtc_ice", "join"]:
+                    if msg_type == "join":
+                        normalized_role = _normalize_room_role(message.get("role"))
+                        if room_id not in room_roles:
+                            room_roles[room_id] = {}
+                        if normalized_role:
+                            room_roles[room_id][user_id] = normalized_role
+                        await _broadcast_room_status(room_id)
                     await manager.broadcast_to_others(room_id, user_id, message)
-                    
-                
+
                 elif msg_type == "transcript":
+                    if not _room_is_ready(room_id):
+                        await _broadcast_room_status(room_id)
+                        continue
+
                     if room_id not in chat_histories:
                         chat_histories[room_id] = []
-                    
+
                     chat_histories[room_id].append({
                         "user_id": int(message.get("speaker_id")),
                         "message": message.get("text"),
                         "role": message.get("role"),
-                        "timestamp": message.get("timestamp")
+                        "timestamp": message.get("timestamp"),
                     })
                     await manager.broadcast_to_others(room_id, user_id, message)
-                    
+
             except json.JSONDecodeError:
                 logger.error("Invalid JSON received")
-                
+
     except WebSocketDisconnect:
         manager.disconnect(room_id, user_id)
+
+        if room_id in room_roles and user_id in room_roles[room_id]:
+            del room_roles[room_id][user_id]
+            if not room_roles[room_id]:
+                del room_roles[room_id]
+
         await manager.broadcast_to_others(room_id, user_id, {
             "type": "user_left",
-            "user_id": user_id
+            "user_id": user_id,
         })
+        await _broadcast_room_status(room_id)
 
         if room_id in chat_histories and chat_histories[room_id]:
             from sqlalchemy import text
+
             sql_insert = text("""
                 INSERT INTO chat_histories (interview_id, user_id, message, created_at)
                 VALUES (:interview_id, :user_id, :message, :created_at)
@@ -100,7 +161,7 @@ async def interview_endpoint(websocket: WebSocket, room_id: str, user_id: str , 
                         item["message"],
                         item.get("role"),
                     ),
-                    "created_at": datetime.fromisoformat(item["timestamp"])
+                    "created_at": datetime.fromisoformat(item["timestamp"]),
                 })
             db.commit()
-            chat_histories[room_id].clear()
+        chat_histories.pop(room_id, None)

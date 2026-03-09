@@ -1,22 +1,24 @@
-import 'package:flutter/material.dart';
-import 'package:client/src/models/chatmessage_model.dart';
-import 'package:client/src/components/MeetingPage/chatbubble.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:permission_handler/permission_handler.dart';
-import 'package:client/src/services/auth_storage.dart';
-import 'package:client/src/services/user_services.dart';
 import 'dart:async';
 
+import 'package:client/src/components/MeetingPage/chatbubble.dart';
+import 'package:client/src/models/chatmessage_model.dart';
+import 'package:client/src/services/auth_storage.dart';
 import 'package:client/src/services/signaling_service.dart';
+import 'package:client/src/services/user_services.dart';
+import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class ChatMeeting extends StatefulWidget {
   final bool isMicOn;
+  final bool canSpeak;
   final SignalingService? signalingService;
   final String? roomId;
 
   const ChatMeeting({
     super.key,
     required this.isMicOn,
+    required this.canSpeak,
     this.signalingService,
     this.roomId,
   });
@@ -28,22 +30,27 @@ class ChatMeeting extends StatefulWidget {
 class ChatMeetingState extends State<ChatMeeting> {
   final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speechToText = stt.SpeechToText();
+
   static const String _aiRole = 'AI';
   static const String _aiUsername = 'ai';
   static const String _aiFullName = 'AI';
+
   bool _isListening = false;
   bool _isAttempting = false;
+  bool _isNewMessage = true;
+  bool _isInitialized = false;
+
   String? _currentUserRole;
   String? _currentUserName;
   int? _currentUserId;
   String? _currentUserFullName;
-  String _currentText = "";
-  String _lastDisplayedText = "";
-  bool _isNewMessage = true;
-  bool _isInitialized = false;
+
+  String _currentText = '';
+  String _lastDisplayedText = '';
+  int _committedLength = 0;
+
   Timer? _silenceTimer;
   Timer? _guardianTimer;
-  int _committedLength = 0;
 
   final List<ChatMessage> _messages = [];
 
@@ -60,6 +67,7 @@ class ChatMeetingState extends State<ChatMeeting> {
     _guardianTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted &&
           widget.isMicOn &&
+          widget.canSpeak &&
           !_speechToText.isListening &&
           !_isAttempting) {
         debugPrint(
@@ -80,9 +88,9 @@ class ChatMeetingState extends State<ChatMeeting> {
           setState(() {
             _currentUserId = user.id;
             _currentUserName = user.username;
-            _currentUserRole = user.role.toUpperCase() == "HR"
-                ? "HR"
-                : "Candidate";
+            _currentUserRole = user.role.toUpperCase() == 'HR'
+                ? 'HR'
+                : 'Candidate';
             _currentUserFullName = user.username;
           });
         }
@@ -91,7 +99,7 @@ class ChatMeetingState extends State<ChatMeeting> {
       debugPrint('Error fetching identity: $e');
       if (mounted) {
         setState(() {
-          _currentUserRole = "HR";
+          _currentUserRole = 'HR';
           _currentUserId = 1;
         });
       }
@@ -100,13 +108,14 @@ class ChatMeetingState extends State<ChatMeeting> {
 
   Future<void> _initSpeech() async {
     await Permission.microphone.request();
-    bool available = await _speechToText.initialize(
+    final available = await _speechToText.initialize(
       onStatus: _handleStatus,
       onError: (err) {
         debugPrint('STT Error: ${err.errorMsg}');
         _handleStatus('done');
       },
     );
+
     if (mounted) {
       setState(() {
         _isInitialized = available;
@@ -115,57 +124,106 @@ class ChatMeetingState extends State<ChatMeeting> {
   }
 
   void _handleStatus(String status) {
-    debugPrint('STT Status: $status (Mic: ${widget.isMicOn})');
+    debugPrint(
+      'STT Status: $status (Mic: ${widget.isMicOn}, Ready: ${widget.canSpeak})',
+    );
+
     if (status == 'listening') {
       _isAttempting = false;
-      if (mounted) setState(() => _isListening = true);
-    } else if (status == 'done' || status == 'notListening') {
-      _isAttempting = false;
-
       if (mounted) {
-        _committedLength = 0;
-        _isNewMessage = true;
-        _currentText = "";
+        setState(() => _isListening = true);
       }
+      return;
+    }
 
-      if (mounted && !widget.isMicOn) {
-        setState(() => _isListening = false);
-      }
+    if (status != 'done' && status != 'notListening') {
+      return;
+    }
 
-      if (mounted && widget.isMicOn) {
-        _listen();
-      }
+    _isAttempting = false;
+    _resetDraftState();
+
+    if (mounted && (!widget.isMicOn || !widget.canSpeak)) {
+      setState(() => _isListening = false);
+    }
+
+    if (mounted && widget.isMicOn && widget.canSpeak) {
+      _listen();
     }
   }
 
   @override
   void didUpdateWidget(covariant ChatMeeting oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isMicOn != oldWidget.isMicOn) {
-      if (widget.isMicOn) {
-        _committedLength = 0;
-        _isNewMessage = true;
-        _currentText = "";
-        _lastDisplayedText = "";
-        _isAttempting = false;
+
+    final micTurnedOn = widget.isMicOn && !oldWidget.isMicOn;
+    final micTurnedOff = !widget.isMicOn && oldWidget.isMicOn;
+    final speakingEnabled = widget.canSpeak && !oldWidget.canSpeak;
+    final speakingDisabled = !widget.canSpeak && oldWidget.canSpeak;
+
+    if (micTurnedOff) {
+      _pauseForMutedMicrophone(removeDraft: true);
+    }
+
+    if (speakingDisabled) {
+      _stopListeningSession(removeDraft: true);
+    }
+
+    if ((micTurnedOn || speakingEnabled) && widget.isMicOn && widget.canSpeak) {
+      _resetDraftState();
+      _isAttempting = false;
+      _silenceTimer?.cancel();
+
+      if (!_speechToText.isListening) {
         _isListening = false;
-        _silenceTimer?.cancel();
         _listen();
-      } else {
-        _silenceTimer?.cancel();
-        _speechToText.stop();
-        if (mounted) {
-          setState(() {
-            _isListening = false;
-            _isAttempting = false;
-            _isNewMessage = true;
-            _currentText = "";
-            _lastDisplayedText = "";
-            _committedLength = 0;
-          });
-        }
       }
     }
+  }
+
+  void _resetDraftState() {
+    _committedLength = 0;
+    _isNewMessage = true;
+    _currentText = '';
+    _lastDisplayedText = '';
+  }
+
+  void _clearDraftState({required bool removeDraft, required bool markIdle}) {
+    if (!mounted) {
+      _isAttempting = false;
+      if (markIdle) {
+        _isListening = false;
+      }
+      _resetDraftState();
+      return;
+    }
+
+    setState(() {
+      if (removeDraft &&
+          _currentText.isNotEmpty &&
+          _messages.isNotEmpty &&
+          _messages.last.userId == (_currentUserId ?? 1) &&
+          _messages.last.role == (_currentUserRole ?? 'HR')) {
+        _messages.removeLast();
+      }
+
+      _isAttempting = false;
+      if (markIdle) {
+        _isListening = false;
+      }
+      _resetDraftState();
+    });
+  }
+
+  void _pauseForMutedMicrophone({required bool removeDraft}) {
+    _silenceTimer?.cancel();
+    _clearDraftState(removeDraft: removeDraft, markIdle: false);
+  }
+
+  void _stopListeningSession({required bool removeDraft}) {
+    _silenceTimer?.cancel();
+    _speechToText.stop();
+    _clearDraftState(removeDraft: removeDraft, markIdle: true);
   }
 
   @override
@@ -189,7 +247,7 @@ class ChatMeetingState extends State<ChatMeeting> {
 
   String _currentTimeLabel() {
     final now = DateTime.now();
-    return "${now.minute}:${now.second.toString().padLeft(2, '0')}";
+    return '${now.minute}:${now.second.toString().padLeft(2, '0')}';
   }
 
   ChatMessage _buildAiChatMessage(String text, {String? time}) {
@@ -205,7 +263,7 @@ class ChatMeetingState extends State<ChatMeeting> {
 
   void addAiMessage(String text) {
     final trimmedText = text.trim();
-    if (trimmedText.isEmpty || !mounted) {
+    if (trimmedText.isEmpty || !mounted || !widget.canSpeak) {
       return;
     }
 
@@ -233,7 +291,11 @@ class ChatMeetingState extends State<ChatMeeting> {
   }
 
   void _listen() async {
-    if (_isListening || _isAttempting || !widget.isMicOn || !_isInitialized) {
+    if (_isListening ||
+        _isAttempting ||
+        !widget.isMicOn ||
+        !widget.canSpeak ||
+        !_isInitialized) {
       return;
     }
 
@@ -251,53 +313,56 @@ class ChatMeetingState extends State<ChatMeeting> {
           partialResults: true,
         ),
         onResult: (val) {
-          if (!mounted || !widget.isMicOn) return;
+          if (!mounted || !widget.isMicOn || !widget.canSpeak) {
+            return;
+          }
 
           final fullText = val.recognizedWords;
-          if (fullText.trim().isEmpty) return;
+          if (fullText.trim().isEmpty) {
+            return;
+          }
 
           if (val.confidence > 0 && val.confidence < 0.3) {
             debugPrint('STT: Skipped low confidence (${val.confidence})');
             return;
           }
 
-          String newText;
-          if (fullText.length > _committedLength) {
-            newText = fullText.substring(_committedLength).trim();
-          } else {
-            newText = fullText.trim();
+          final newText = fullText.length > _committedLength
+              ? fullText.substring(_committedLength).trim()
+              : fullText.trim();
+
+          if (newText.isEmpty || newText == _lastDisplayedText) {
+            return;
           }
-          if (newText.isEmpty) return;
 
-          if (newText == _lastDisplayedText) return;
           _lastDisplayedText = newText;
-
           _silenceTimer?.cancel();
           _silenceTimer = Timer(const Duration(seconds: 2), () {
-            if (mounted && _currentText.isNotEmpty) {
-              debugPrint('STT: Silence detected, finalizing bubble.');
-              _committedLength = fullText.length;
+            if (!mounted || _currentText.isEmpty || !widget.canSpeak) {
+              return;
+            }
 
-              if (widget.signalingService != null && widget.roomId != null) {
-                widget.signalingService!.sendMessage({
-                  'type': 'transcript',
-                  'room_id': widget.roomId,
-                  'speaker_id': _currentUserId.toString(),
-                  'role': _currentUserRole,
-                  'text': _currentText,
-                  'is_final': true,
-                  'timestamp': DateTime.now().toIso8601String(),
-                  'time':
-                      "${DateTime.now().minute}:${DateTime.now().second.toString().padLeft(2, '0')}",
-                });
-              }
+            debugPrint('STT: Silence detected, finalizing bubble.');
+            _committedLength = fullText.length;
 
-              setState(() {
-                _isNewMessage = true;
-                _currentText = "";
-                _lastDisplayedText = "";
+            if (widget.signalingService != null && widget.roomId != null) {
+              widget.signalingService!.sendMessage({
+                'type': 'transcript',
+                'room_id': widget.roomId,
+                'speaker_id': _currentUserId.toString(),
+                'role': _currentUserRole,
+                'text': _currentText,
+                'is_final': true,
+                'timestamp': DateTime.now().toIso8601String(),
+                'time': _currentTimeLabel(),
               });
             }
+
+            setState(() {
+              _isNewMessage = true;
+              _currentText = '';
+              _lastDisplayedText = '';
+            });
           });
 
           setState(() {
@@ -307,23 +372,23 @@ class ChatMeetingState extends State<ChatMeeting> {
             if (_isNewMessage) {
               _messages.add(
                 ChatMessage(
-                  role: _currentUserRole ?? "HR",
+                  role: _currentUserRole ?? 'HR',
                   time: time,
                   text: _currentText,
                   userId: _currentUserId ?? 1,
-                  username: _currentUserName ?? "user",
-                  fullName: _currentUserFullName ?? "User",
+                  username: _currentUserName ?? 'user',
+                  fullName: _currentUserFullName ?? 'User',
                 ),
               );
               _isNewMessage = false;
             } else {
               _messages[_messages.length - 1] = ChatMessage(
-                role: _currentUserRole ?? "HR",
+                role: _currentUserRole ?? 'HR',
                 time: time,
                 text: _currentText,
                 userId: _currentUserId ?? 1,
-                username: _currentUserName ?? "user",
-                fullName: _currentUserFullName ?? "User",
+                username: _currentUserName ?? 'user',
+                fullName: _currentUserFullName ?? 'User',
               );
             }
           });
@@ -337,7 +402,10 @@ class ChatMeetingState extends State<ChatMeeting> {
   }
 
   void handleRemoteTranscript(Map<String, dynamic> message) {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
+
     final role = message['role']?.toString() ?? 'HR';
     final normalizedRole = role.toUpperCase();
     final isAi = normalizedRole == _aiRole;
@@ -380,6 +448,37 @@ class ChatMeetingState extends State<ChatMeeting> {
       ),
       child: Column(
         children: [
+          if (!widget.canSpeak)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.orange.shade100),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.schedule_outlined,
+                    color: Colors.orange.shade800,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'รออีกคนเข้าห้องอยู่ ระบบจะเริ่มฟังและบันทึกบทสนทนาเมื่อ HR และ Candidate เข้าครบแล้ว',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,

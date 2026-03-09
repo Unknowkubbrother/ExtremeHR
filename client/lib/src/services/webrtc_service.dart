@@ -6,6 +6,8 @@ class WebRTCService {
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
   MediaStream? _remoteStream;
+  final List<RTCIceCandidate> _pendingIceCandidates = [];
+  bool _hasRemoteDescription = false;
 
   final SignalingService signalingService;
 
@@ -13,6 +15,10 @@ class WebRTCService {
   Function(MediaStream)? onRemoteStream;
 
   WebRTCService(this.signalingService);
+
+  void _enableSpeakerphone() {
+    Helper.setSpeakerphoneOn(true);
+  }
 
   Future<void> initLocalStream() async {
     final Map<String, dynamic> mediaConstraints = {
@@ -46,11 +52,21 @@ class WebRTCService {
     }
 
     if (_localStream != null) {
+      for (final track in _localStream!.getAudioTracks()) {
+        track.enabled = true;
+      }
+      for (final track in _localStream!.getVideoTracks()) {
+        track.enabled = true;
+      }
+      _enableSpeakerphone();
       onLocalStream?.call(_localStream!);
     }
   }
 
   Future<void> initPeerConnection(String roomId, String userId) async {
+    _pendingIceCandidates.clear();
+    _hasRemoteDescription = false;
+
     final configuration = {
       'iceServers': [
         {'urls': 'stun:stun.l.google.com:19302'},
@@ -85,21 +101,32 @@ class WebRTCService {
       if (event.streams.isNotEmpty) {
         _remoteStream = event.streams[0];
 
-        // Ensure remote audio tracks are explicitly enabled just in case
-        for (var track in _remoteStream!.getAudioTracks()) {
+        for (final track in _remoteStream!.getAudioTracks()) {
+          track.enabled = true;
+        }
+        for (final track in _remoteStream!.getVideoTracks()) {
           track.enabled = true;
         }
 
+        _enableSpeakerphone();
         onRemoteStream?.call(_remoteStream!);
       }
     };
   }
 
-  Future<void> createOffer(String roomId, String userId) async {
+  Future<void> createOffer(
+    String roomId,
+    String userId, {
+    bool iceRestart = false,
+  }) async {
     if (_peerConnection == null) return;
 
     try {
-      RTCSessionDescription offer = await _peerConnection!.createOffer();
+      RTCSessionDescription offer = await _peerConnection!.createOffer({
+        'offerToReceiveAudio': true,
+        'offerToReceiveVideo': true,
+        'iceRestart': iceRestart,
+      });
       await _peerConnection!.setLocalDescription(offer);
 
       signalingService.sendMessage({
@@ -118,7 +145,10 @@ class WebRTCService {
     if (_peerConnection == null) return;
 
     try {
-      RTCSessionDescription answer = await _peerConnection!.createAnswer();
+      RTCSessionDescription answer = await _peerConnection!.createAnswer({
+        'offerToReceiveAudio': true,
+        'offerToReceiveVideo': true,
+      });
       await _peerConnection!.setLocalDescription(answer);
 
       signalingService.sendMessage({
@@ -140,20 +170,41 @@ class WebRTCService {
       await _peerConnection!.setRemoteDescription(
         RTCSessionDescription(sdp, type),
       );
+      _hasRemoteDescription = true;
+      await _flushPendingIceCandidates();
     } catch (e) {
       if (kDebugMode) print('Error setting remote description: $e');
     }
+  }
+
+  Future<void> _flushPendingIceCandidates() async {
+    if (_peerConnection == null || !_hasRemoteDescription) return;
+
+    for (final candidate in List<RTCIceCandidate>.from(_pendingIceCandidates)) {
+      try {
+        await _peerConnection!.addCandidate(candidate);
+      } catch (e) {
+        if (kDebugMode) print('Error flushing ICE candidate: $e');
+      }
+    }
+    _pendingIceCandidates.clear();
   }
 
   Future<void> handleIceCandidate(Map<String, dynamic> candidateData) async {
     if (_peerConnection == null) return;
 
     try {
-      RTCIceCandidate candidate = RTCIceCandidate(
+      final candidate = RTCIceCandidate(
         candidateData['candidate'],
         candidateData['sdpMid'],
         candidateData['sdpMLineIndex'],
       );
+
+      if (!_hasRemoteDescription) {
+        _pendingIceCandidates.add(candidate);
+        return;
+      }
+
       await _peerConnection!.addCandidate(candidate);
     } catch (e) {
       if (kDebugMode) print('Error adding ICE candidate: $e');
@@ -162,17 +213,17 @@ class WebRTCService {
 
   void toggleMicrophone(bool isMuted) {
     if (_localStream != null) {
-      for (var track in _localStream!.getAudioTracks()) {
+      for (final track in _localStream!.getAudioTracks()) {
         track.enabled = !isMuted;
       }
 
-      Helper.setSpeakerphoneOn(true);
+      _enableSpeakerphone();
     }
   }
 
   void toggleCamera(bool isVideoOff) {
     if (_localStream != null) {
-      for (var track in _localStream!.getVideoTracks()) {
+      for (final track in _localStream!.getVideoTracks()) {
         track.enabled = !isVideoOff;
       }
     }
