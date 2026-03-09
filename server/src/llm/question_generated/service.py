@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from src.llm.question_generated.agent import build_agent, extract_json_text, QuestionCandidates, get_llm
 from src.llm.question_generated.tools import build_tools
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 import json
 
 def get_recent_questions_text(history: list) -> str:
@@ -26,21 +28,29 @@ def get_recent_messages(db: Session, interview_id: int, limit: int = 5) -> str:
     return "\n".join(messages)
 
 def summarize_hr_style(db: Session, interview_id: int, new_prompt: str) -> str:
-    # 1) Get existing interest (This acts as the persistent memory)
+
     query = text("SELECT hr_interest FROM interviews WHERE id = :id")
     row = db.execute(query, {"id": interview_id}).first()
     old_profile = row.hr_interest if row else ""
 
-    # 2) Use LLM to merge instructions efficiently (Direct call, no agent)
     llm = get_llm(temperature=0.2)
-    
-    # We provide a structured merging prompt
-    summary_prompt = f"""
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """
+You are an HR profile updater.
+
+Strict rules:
+- Never invent information
+- Follow the rules exactly
+- Return only the updated HR profile text
+"""),
+
+        ("human", """
 New HR Request (PRIMARY SOURCE OF TRUTH):
 {new_prompt}
 
 Current HR Profile (Context Only – may be outdated):
-{old_profile or "None"}
+{old_profile}
 
 TASK:
 Update the HR Profile using the New HR Request as the primary source.
@@ -52,28 +62,26 @@ RULES:
 4. If the New Request changes the focus, discard outdated instructions.
 5. If the New Request says "clear", "reset", or "start over", ignore the old profile.
 6. Keep the profile concise (MAX 3 sentences).
-7. Each sentence must be under 15 words.
+7. Each sentence must be under 25 words.
 8. Do NOT invent roles, industries, technologies, or skills not mentioned.
 9. NEVER introduce new concepts not present in the New HR Request.
 10. Prefer the NEW request over preserving old details.
+""")
+    ])
 
-FINAL CHECK:
-Ensure the profile does NOT contain any topics excluded in the New HR Request.
+    chain = prompt | llm | StrOutputParser()
 
-OUTPUT:
-Return ONLY the updated HR Profile text.
-"""
-    # Direct call to LLM
-    response = llm.invoke(summary_prompt)
-    summary = response.content.strip()
+    response = chain.invoke({
+        "new_prompt": new_prompt,
+        "old_profile": old_profile or "None"
+    })
 
-    print(summary)
+    summary = response.strip()
 
-    # 3) Save back to DB (Persistent Memory)
     update_query = text("UPDATE interviews SET hr_interest = :summary WHERE id = :id")
     db.execute(update_query, {"summary": summary, "id": interview_id})
     db.commit()
-    
+
     return summary
 
 def build_baseline_context(db: Session, interview_id: int) -> str:
@@ -96,12 +104,6 @@ INTERVIEW DIFFICULTY (0.0=Entry, 0.5=Mid, 1.0=Expert):
 
 HR INTERESTING (Use as weight for questions):
 {row.hr_interest or "No specific HR interests noted."}
-
-CANDIDATE PROFILE SUMMARY:
-{row.candidate_profile_summary or "No candidate profile summary."}
-
-JOB PROFILE SUMMARY:
-{row.job_profile_summary or "No job profile summary."}
 
 CANDIDATE STRENGTHS:
 {row.candidate_strengths or "No strengths identified yet."}
@@ -127,6 +129,8 @@ def generate_interview_questions(
     
     # 2) Update HR interest profile (Memory)
     hr_profile = summarize_hr_style(db, interview_id, hr_prompt)
+
+    print("HR PROFILE:", hr_profile)
     
     # 3) Fetch previous questions specifically to prevent repetition in Agent Memory
     prev_q_query = text("""
@@ -170,6 +174,9 @@ REASONING PROCESS:
 2. Ignore unrelated context.
 3. Generate questions aligned ONLY with the HR REQUEST.
 
+DEFAULT LANGUAGE:
+All questions and explanations MUST be written in Thai unless the HR REQUEST is explicitly English.
+
 RULES:
 - Questions must clearly reflect the HR REQUEST.
 - Do not introduce unrelated roles, skills, or industries.
@@ -206,8 +213,11 @@ Return ONLY a valid JSON object.
             combined_prompt += f"\n\nERROR FROM PREVIOUS ATTEMPT:\n{feedback_msg}\n\nPlease fix the JSON and return the corrected version."
 
         try:
-            result = agent.run(combined_prompt)
-            json_str = extract_json_text(result)
+            result = agent.invoke({
+                "input": combined_prompt,
+                "chat_history": []
+            })
+            json_str = extract_json_text(result["output"])
             parsed_data = json.loads(json_str, strict=False)
 
             if isinstance(parsed_data, list):

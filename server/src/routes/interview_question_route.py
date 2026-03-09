@@ -4,12 +4,29 @@ from pydantic import BaseModel
 
 from src.databases.db_connect import get_db
 from src.llm.question_generated.service import generate_interview_questions, save_generated_questions
+from src.llm.evl_question.evl_question import evaluate_single_answer as evaluate_llm_answer
 
 class GenerateRequest(BaseModel):
     interview_id: int
     hr_prompt: str
 
+class EvaluateRequest(BaseModel):
+    question_id: int
+    user_answer: str
+
 interview_question_router = APIRouter()
+
+@interview_question_router.post("/test-evaluate")
+def test_evaluate_answer(request: EvaluateRequest, db: Session = Depends(get_db)):
+    try:
+        result = evaluate_llm_answer(
+            db=db,
+            question_id=request.question_id,
+            user_answer=request.user_answer
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @interview_question_router.post("/test-generate")
 def test_generate_questions(request: GenerateRequest, db: Session = Depends(get_db)):
