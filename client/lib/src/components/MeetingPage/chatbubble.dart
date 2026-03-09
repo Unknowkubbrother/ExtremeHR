@@ -10,9 +10,8 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAi = message.role.toUpperCase() == 'AI';
-    final isMe =
-        !isAi && currentUserId != null && message.userId == currentUserId;
-    final isRightAligned = isAi || isMe;
+    final isMe = currentUserId != null && message.userId == currentUserId;
+    final isRightAligned = isMe;
     final bubbleColor = isAi
         ? Colors.amber.shade50
         : (isMe ? Colors.indigo.shade500 : Colors.blue.shade50);
