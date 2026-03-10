@@ -88,6 +88,7 @@ def get_hr_jobs(db: Session = Depends(get_db), hr_user_id: int = Depends(require
         SELECT j.id, j.title, COALESCE(c.name, '-') as company, 
                (SELECT COUNT(i.id) FROM interviews i WHERE i.job_id = j.id AND i.is_active = true) as candidate_count, 
                (SELECT COUNT(i.id) FROM interviews i WHERE i.job_id = j.id AND i.is_active = true AND i.status = '{ApplyStatusEnum.ACCEPTED.value}') as approved_count,
+               (SELECT COUNT(i.id) FROM interviews i WHERE i.job_id = j.id AND i.is_active = true AND i.status = '{ApplyStatusEnum.INTERVIEW.value}') as interview_count,
                (SELECT COUNT(i.id) FROM interviews i WHERE i.job_id = j.id AND i.is_active = true AND i.status = '{ApplyStatusEnum.WAITING.value}') as waiting_count,
                j.headcount,
                j."postedAt" 

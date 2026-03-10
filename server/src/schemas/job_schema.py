@@ -55,6 +55,7 @@ class JobHRResponse(BaseModel):
     company: str
     candidate_count: int
     approved_count: int = 0
+    interview_count: int = 0
     waiting_count: int = 0
     headcount: int = 0
     postedAt: datetime
