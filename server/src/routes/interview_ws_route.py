@@ -20,19 +20,52 @@ class ConnectionManager:
         await websocket.accept()
         if room_id not in self.active_rooms:
             self.active_rooms[room_id] = {}
+        previous_socket = self.active_rooms[room_id].get(user_id)
+        if previous_socket is not None and previous_socket is not websocket:
+            logger.info(
+                "Replacing existing websocket for user %s in room %s",
+                user_id,
+                room_id,
+            )
+            try:
+                await previous_socket.close(code=4001, reason="Reconnected")
+            except Exception as e:
+                logger.warning(
+                    "Error closing previous websocket for user %s in room %s: %s",
+                    user_id,
+                    room_id,
+                    e,
+                )
         self.active_rooms[room_id][user_id] = websocket
         logger.info(f"User {user_id} connected to room {room_id}")
 
-    def disconnect(self, room_id: str, user_id: str):
-        if room_id in self.active_rooms and user_id in self.active_rooms[room_id]:
-            del self.active_rooms[room_id][user_id]
-            if not self.active_rooms[room_id]:
-                del self.active_rooms[room_id]
-            logger.info(f"User {user_id} disconnected from room {room_id}")
+    def disconnect(
+        self,
+        room_id: str,
+        user_id: str,
+        websocket: WebSocket | None = None,
+    ) -> bool:
+        if room_id not in self.active_rooms or user_id not in self.active_rooms[room_id]:
+            return False
+
+        active_socket = self.active_rooms[room_id][user_id]
+        if websocket is not None and active_socket is not websocket:
+            logger.info(
+                "Ignoring disconnect from stale websocket for user %s in room %s",
+                user_id,
+                room_id,
+            )
+            return False
+
+        del self.active_rooms[room_id][user_id]
+        if not self.active_rooms[room_id]:
+            del self.active_rooms[room_id]
+        logger.info(f"User {user_id} disconnected from room {room_id}")
+        return True
 
     async def broadcast_to_others(self, room_id: str, sender_id: str, message: dict):
         if room_id in self.active_rooms:
-            for uid, ws in self.active_rooms[room_id].items():
+            for uid, ws in list(self.active_rooms[room_id].items()):
                 if uid != sender_id:
                     try:
                         await ws.send_json(message)
@@ -41,7 +74,7 @@ class ConnectionManager:
 
     async def broadcast_to_room(self, room_id: str, message: dict):
         if room_id in self.active_rooms:
-            for uid, ws in self.active_rooms[room_id].items():
+            for uid, ws in list(self.active_rooms[room_id].items()):
                 try:
                     await ws.send_json(message)
                 except Exception as e:
@@ -155,7 +188,9 @@ async def interview_endpoint(
                 logger.error("Invalid JSON received")
 
     except WebSocketDisconnect:
-        manager.disconnect(room_id, user_id)
+        active_connection_removed = manager.disconnect(room_id, user_id, websocket)
+        if not active_connection_removed:
+            return
 
         if room_id in room_roles and user_id in room_roles[room_id]:
             del room_roles[room_id][user_id]

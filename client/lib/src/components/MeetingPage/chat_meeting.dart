@@ -65,11 +65,10 @@ class ChatMeetingState extends State<ChatMeeting> {
 
   final List<ChatMessage> _messages = [];
 
-  bool get _canListen =>
-      widget.isMicOn &&
-      widget.canSpeak &&
-      widget.isCallConnected &&
-      _isInitialized;
+  bool get _shouldKeepSpeechSession =>
+      widget.canSpeak && widget.isCallConnected && _isInitialized;
+
+  bool get _canSendSpeech => _shouldKeepSpeechSession && widget.isMicOn;
 
   @override
   void initState() {
@@ -83,12 +82,12 @@ class ChatMeetingState extends State<ChatMeeting> {
     _guardianTimer?.cancel();
     _guardianTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted &&
-          _canListen &&
+          _shouldKeepSpeechSession &&
           !_speechToText.isListening &&
           !_isAttempting &&
           !(_listenRestartTimer?.isActive ?? false)) {
         debugPrint(
-          'STT Guardian: Mic should be ON but is OFF. Force restarting...',
+          'STT Guardian: Speech session should be active but is idle. Force restarting...',
         );
         _scheduleListenStart(const Duration(milliseconds: 300));
       }
@@ -191,7 +190,7 @@ class ChatMeetingState extends State<ChatMeeting> {
     );
 
     if (status == 'listening') {
-      if (!_canListen) {
+      if (!_shouldKeepSpeechSession) {
         return;
       }
 
@@ -206,18 +205,18 @@ class ChatMeetingState extends State<ChatMeeting> {
       return;
     }
 
-    if (_canListen && _speechToText.isListening) {
+    if (_shouldKeepSpeechSession && _speechToText.isListening) {
       return;
     }
 
     _isAttempting = false;
     _resetDraftState();
 
-    if (mounted && !_canListen) {
+    if (mounted && !_shouldKeepSpeechSession) {
       setState(() => _isListening = false);
     }
 
-    if (mounted && _canListen) {
+    if (mounted && _shouldKeepSpeechSession) {
       _scheduleListenStart();
     }
   }
@@ -226,13 +225,13 @@ class ChatMeetingState extends State<ChatMeeting> {
     Duration delay = const Duration(milliseconds: 800),
   ]) {
     _listenRestartTimer?.cancel();
-    if (!_canListen) {
+    if (!_shouldKeepSpeechSession) {
       return;
     }
 
     _listenRestartTimer = Timer(delay, () {
       if (!mounted ||
-          !_canListen ||
+          !_shouldKeepSpeechSession ||
           _speechToText.isListening ||
           _isAttempting) {
         return;
@@ -261,7 +260,8 @@ class ChatMeetingState extends State<ChatMeeting> {
       _stopListeningSession(removeDraft: true);
     }
 
-    if ((micTurnedOn || speakingEnabled || callConnected) && _canListen) {
+    if ((micTurnedOn || speakingEnabled || callConnected) &&
+        _shouldKeepSpeechSession) {
       _resetDraftState();
       _isAttempting = false;
       _silenceTimer?.cancel();
@@ -315,9 +315,9 @@ class ChatMeetingState extends State<ChatMeeting> {
   }
 
   void _pauseForMutedMicrophone({required bool removeDraft}) {
-    _invalidateSpeechSession();
-    _speechToText.cancel();
-    _clearDraftState(removeDraft: removeDraft, markIdle: true);
+    _silenceTimer?.cancel();
+    _listenRestartTimer?.cancel();
+    _clearDraftState(removeDraft: removeDraft, markIdle: false);
   }
 
   void _stopListeningSession({required bool removeDraft}) {
@@ -422,7 +422,7 @@ class ChatMeetingState extends State<ChatMeeting> {
   }
 
   void _listen() async {
-    if (_isListening || _isAttempting || !_canListen) {
+    if (_isListening || _isAttempting || !_shouldKeepSpeechSession) {
       return;
     }
 
@@ -445,7 +445,7 @@ class ChatMeetingState extends State<ChatMeeting> {
             return;
           }
 
-          if (!mounted || !widget.isMicOn || !widget.canSpeak) {
+          if (!mounted || !_canSendSpeech) {
             return;
           }
 
@@ -474,7 +474,7 @@ class ChatMeetingState extends State<ChatMeeting> {
               return;
             }
 
-            if (!mounted || _currentText.isEmpty || !widget.canSpeak) {
+            if (!mounted || _currentText.isEmpty || !_canSendSpeech) {
               return;
             }
 

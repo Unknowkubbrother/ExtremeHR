@@ -68,6 +68,18 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
     _webrtcService.toggleMicrophone(!_isMicOn || !_isRoomReady);
   }
 
+  Future<void> _resetPeerConnectionForRejoin() async {
+    final currentUserId = _currentUserId;
+    if (currentUserId == null) {
+      return;
+    }
+
+    await _webrtcService.restartPeerConnection(
+      widget.id,
+      currentUserId.toString(),
+    );
+  }
+
   Future<void> _handleSignalingMessage(Map<String, dynamic> message) async {
     if (!mounted) return;
 
@@ -93,6 +105,7 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
         _remoteRenderer.srcObject = null;
       });
       _syncMicrophoneState();
+      await _resetPeerConnectionForRejoin();
       return;
     }
 
