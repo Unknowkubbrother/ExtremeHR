@@ -214,12 +214,12 @@ resume:
 def generate_questions(
     request: GenerateRequest,
     db: Session = Depends(get_db),
-    hr_user_id: int = Depends(require_hr_role),
+    #hr_user_id: int = Depends(require_hr_role),
 ):
     import traceback
 
     try:
-        _require_hr_interview_access(db, request.interview_id, hr_user_id)
+        #_require_hr_interview_access(db, request.interview_id, hr_user_id)
 
         results = generate_interview_questions(
             db=db,
