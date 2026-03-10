@@ -61,6 +61,53 @@ def _require_hr_interview_access(db: Session, interview_id: int, hr_user_id: int
         )
 
 
+def _get_user_role(db: Session, user_id: int) -> str:
+    user = db.execute(
+        text("SELECT role FROM users WHERE id = :user_id"),
+        {"user_id": user_id},
+    ).first()
+
+    if not user or not user.role:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    return user.role.strip().lower()
+
+
+def _require_interview_summary_access(db: Session, interview_id: int, user_id: int):
+    user_role = _get_user_role(db, user_id)
+
+    if user_role == "hr":
+        _require_hr_interview_access(db, interview_id, user_id)
+        return
+
+    if user_role != "candidate":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    interview = db.execute(
+        text("""
+            SELECT status
+            FROM interviews
+            WHERE id = :interview_id AND user_id = :user_id
+        """),
+        {"interview_id": interview_id, "user_id": user_id},
+    ).first()
+
+    if not interview:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized or interview not found",
+        )
+
+    if interview.status not in {
+        ApplyStatusEnum.ACCEPTED.value,
+        ApplyStatusEnum.REJECTED.value,
+    }:
+        raise HTTPException(
+            status_code=409,
+            detail="Interview summary is not available yet",
+        )
+
+
 def _require_interview_status(
     db: Session,
     interview_id: int,
@@ -348,9 +395,9 @@ def generate_summary(
 def get_interview_summary(
     interview_id: int,
     db: Session = Depends(get_db),
-    hr_user_id: int = Depends(require_hr_role),
+    user_id: int = Depends(get_current_user_id),
 ):
-    _require_hr_interview_access(db, interview_id, hr_user_id)
+    _require_interview_summary_access(db, interview_id, user_id)
 
     summary = get_saved_interview_summary(db, interview_id)
     if summary is None:

@@ -28,10 +28,25 @@ class InterviewCard extends StatelessWidget {
   final VoidCallback? onRefresh;
 
   bool get _canOpenSummary =>
-      isHR &&
-      (state == Status.view ||
-          state == Status.accepted ||
-          state == Status.reject);
+      (isHR &&
+          (state == Status.view ||
+              state == Status.accepted ||
+              state == Status.reject)) ||
+      (!isHR && (state == Status.accepted || state == Status.reject));
+
+  bool get _shouldNotifySummaryPending => !isHR && state == Status.view;
+
+  void _handleCardTap(BuildContext context) {
+    if (!isHR &&
+        (state == Status.interview ||
+            _canOpenSummary ||
+            _shouldNotifySummaryPending)) {
+      _handleBadgeTap(context);
+      return;
+    }
+
+    action();
+  }
 
   void _handleBadgeTap(BuildContext context) async {
     if (state == Status.interview) {
@@ -47,6 +62,10 @@ class InterviewCard extends StatelessWidget {
         );
       }
       if (onRefresh != null) onRefresh!();
+    } else if (_shouldNotifySummaryPending) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณารอ HR สรุปผลสัมภาษณ์ก่อน')),
+      );
     } else if (_canOpenSummary) {
       await Navigator.push(
         context,
@@ -62,7 +81,7 @@ class InterviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: action,
+      onTap: () => _handleCardTap(context),
       child: CardContent(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -86,7 +105,10 @@ class InterviewCard extends StatelessWidget {
             const SizedBox(width: 16),
             StatusBadge(
               status: state,
-              onTap: (state == Status.interview || _canOpenSummary)
+              onTap:
+                  (state == Status.interview ||
+                      _canOpenSummary ||
+                      _shouldNotifySummaryPending)
                   ? () => _handleBadgeTap(context)
                   : null,
             ),
