@@ -25,3 +25,11 @@ class HRCandidateResponse(BaseModel):
     candidate_id: int
 
 
+class ChatHistoryMessageResponse(BaseModel):
+    role: str
+    time: str
+    text: str
+    user_id: int
+    username: str
+    full_name: str
+

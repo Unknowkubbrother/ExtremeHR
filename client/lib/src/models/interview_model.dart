@@ -73,15 +73,20 @@ class GeneratedInterviewQuestion {
   final String interviewQuestion;
   final String difficulty;
   final String competency;
+  final int? id;
 
   GeneratedInterviewQuestion({
     required this.interviewQuestion,
     required this.difficulty,
     required this.competency,
+    this.id,
   });
 
   factory GeneratedInterviewQuestion.fromJson(Map<String, dynamic> json) {
     return GeneratedInterviewQuestion(
+      id: json['id'] is num
+          ? (json['id'] as num).toInt()
+          : int.tryParse(json['id']?.toString() ?? ''),
       interviewQuestion: json['interview_question']?.toString() ?? '',
       difficulty: json['difficulty']?.toString() ?? '',
       competency: json['competency']?.toString() ?? '',
@@ -115,8 +120,32 @@ class GeneratedInterviewQuestionResponse {
             (item) => GeneratedInterviewQuestion.fromJson(
               Map<String, dynamic>.from(item),
             ),
-      )
+          )
           .toList(),
+    );
+  }
+}
+
+class QuestionEvaluationResult {
+  final int questionId;
+  final double score;
+  final String reason;
+
+  QuestionEvaluationResult({
+    required this.questionId,
+    required this.score,
+    required this.reason,
+  });
+
+  factory QuestionEvaluationResult.fromJson(Map<String, dynamic> json) {
+    return QuestionEvaluationResult(
+      questionId: json['question_id'] is num
+          ? (json['question_id'] as num).toInt()
+          : int.tryParse(json['question_id']?.toString() ?? '') ?? 0,
+      score: json['score'] is num
+          ? (json['score'] as num).toDouble()
+          : double.tryParse(json['score']?.toString() ?? '') ?? 0,
+      reason: json['reason']?.toString() ?? '',
     );
   }
 }
@@ -125,10 +154,7 @@ class InterviewSummaryPoint {
   final String title;
   final String evidence;
 
-  InterviewSummaryPoint({
-    required this.title,
-    required this.evidence,
-  });
+  InterviewSummaryPoint({required this.title, required this.evidence});
 
   factory InterviewSummaryPoint.fromJson(Map<String, dynamic> json) {
     return InterviewSummaryPoint(

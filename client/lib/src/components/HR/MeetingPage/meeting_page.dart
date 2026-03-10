@@ -14,6 +14,14 @@ import 'package:client/src/components/ResumePage/card_content.dart';
 import 'package:client/src/services/signaling_service.dart';
 import 'package:client/src/services/webrtc_service.dart';
 
+String _questionSelectionKey(GeneratedInterviewQuestion question) {
+  final content = question.interviewQuestion.trim();
+  if (question.id != null) {
+    return 'id:${question.id}';
+  }
+  return 'text:$content';
+}
+
 class HRMeetingPage extends StatefulWidget {
   const HRMeetingPage({super.key, required this.id});
 
@@ -40,6 +48,9 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
 
   String? _currentUserRole;
   int? _currentUserId;
+  String _lastAiPrompt = '';
+  List<GeneratedInterviewQuestion> _cachedAiQuestions = const [];
+  final Set<String> _selectedAiQuestionKeys = <String>{};
 
   final GlobalKey<ChatMeetingState> _chatKey = GlobalKey<ChatMeetingState>();
 
@@ -208,12 +219,28 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
         interviewId: widget.id,
         interviewService: _interviewService,
         authService: _authService,
+        initialPrompt: _lastAiPrompt,
+        initialQuestions: _cachedAiQuestions,
+        initiallySelectedQuestionKeys: _selectedAiQuestionKeys,
+        onQuestionsGenerated: _handleGeneratedQuestions,
         onSelectQuestion: _handleSelectQuestion,
       ),
     );
   }
 
-  void _handleSelectQuestion(String questionText) {
+  void _handleGeneratedQuestions(
+    String prompt,
+    List<GeneratedInterviewQuestion> questions,
+  ) {
+    final nextQuestionKeys = questions.map(_questionSelectionKey).toSet();
+    setState(() {
+      _lastAiPrompt = prompt;
+      _cachedAiQuestions = List<GeneratedInterviewQuestion>.from(questions);
+      _selectedAiQuestionKeys.retainAll(nextQuestionKeys);
+    });
+  }
+
+  void _handleSelectQuestion(String questionText, int? questionId) {
     if (!_isRoomReady) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -222,7 +249,15 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
       );
       return;
     }
-    _chatKey.currentState?.addAiMessage(questionText);
+
+    final normalizedText = questionText.trim();
+    if (questionId != null) {
+      _selectedAiQuestionKeys.add('id:$questionId');
+    } else if (normalizedText.isNotEmpty) {
+      _selectedAiQuestionKeys.add('text:$normalizedText');
+    }
+
+    _chatKey.currentState?.addAiMessage(questionText, questionId);
   }
 
   @override
@@ -237,76 +272,83 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
       appBar: AppBar(title: const Text("Interview")),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            VideoMeeting(
-              isCameraOn: _isCameraOn,
-              localRenderer: _localRenderer,
-              remoteRenderer: _remoteRenderer,
-              isRemoteConnected: _isRemoteConnected,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: CardContent(
-                header: Row(
-                  children: [
-                    const Expanded(
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.chat_bubble_outline,
-                            color: AppColors.primary,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            "INTERVIEW TRANSCRIPT",
-                            style: TextStyle(
-                              fontSize: AppFontSizes.caption,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_currentUserRole == 'hr')
-                      OutlinedButton.icon(
-                        onPressed: _isRoomReady ? _openQuestionModal : null,
-                        icon: const Icon(Icons.psychology_alt_outlined),
-                        label: const Text("AI Questions"),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: BorderSide(
-                            color: AppColors.primary.withValues(alpha: 0.22),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: AppFontSizes.small,
-                            fontWeight: FontWeight.w600,
+        child: SingleChildScrollView(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 1.2,
+            child: Column(
+              children: [
+                VideoMeeting(
+                  isCameraOn: _isCameraOn,
+                  localRenderer: _localRenderer,
+                  remoteRenderer: _remoteRenderer,
+                  isRemoteConnected: _isRemoteConnected,
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: CardContent(
+                    header: Row(
+                      children: [
+                        const Expanded(
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline,
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                "INTERVIEW TRANSCRIPT",
+                                style: TextStyle(
+                                  fontSize: AppFontSizes.caption,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        if (_currentUserRole == 'hr')
+                          OutlinedButton.icon(
+                            onPressed: _isRoomReady ? _openQuestionModal : null,
+                            icon: const Icon(Icons.psychology_alt_outlined),
+                            label: const Text("AI Questions"),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: BorderSide(
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.22,
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: AppFontSizes.small,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    child: Expanded(
+                      child: ChatMeeting(
+                        key: _chatKey,
+                        isMicOn: _isMicOn,
+                        canSpeak: _isRoomReady,
+                        isCallConnected: _isRemoteConnected,
+                        signalingService: _signalingService,
+                        roomId: widget.id,
                       ),
-                  ],
-                ),
-                child: Expanded(
-                  child: ChatMeeting(
-                    key: _chatKey,
-                    isMicOn: _isMicOn,
-                    canSpeak: _isRoomReady,
-                    isCallConnected: _isRemoteConnected,
-                    signalingService: _signalingService,
-                    roomId: widget.id,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -468,13 +510,22 @@ class _InterviewQuestionModal extends StatefulWidget {
     required this.interviewId,
     required this.interviewService,
     required this.authService,
+    required this.initialPrompt,
+    required this.initialQuestions,
+    required this.initiallySelectedQuestionKeys,
+    required this.onQuestionsGenerated,
     required this.onSelectQuestion,
   });
 
   final String interviewId;
   final InterviewService interviewService;
   final AuthStorage authService;
-  final ValueChanged<String> onSelectQuestion;
+  final String initialPrompt;
+  final List<GeneratedInterviewQuestion> initialQuestions;
+  final Set<String> initiallySelectedQuestionKeys;
+  final void Function(String, List<GeneratedInterviewQuestion>)
+  onQuestionsGenerated;
+  final void Function(String, int?) onSelectQuestion;
 
   @override
   State<_InterviewQuestionModal> createState() =>
@@ -488,6 +539,14 @@ class _InterviewQuestionModalState extends State<_InterviewQuestionModal> {
   String? _errorMessage;
   List<GeneratedInterviewQuestion> _questions = const [];
   final Set<String> _selectedQuestions = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _promptController.text = widget.initialPrompt;
+    _questions = List<GeneratedInterviewQuestion>.from(widget.initialQuestions);
+    _selectedQuestions.addAll(widget.initiallySelectedQuestionKeys);
+  }
 
   @override
   void dispose() {
@@ -518,8 +577,6 @@ class _InterviewQuestionModalState extends State<_InterviewQuestionModal> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-      _questions = const [];
-      _selectedQuestions.clear();
     });
 
     try {
@@ -533,12 +590,18 @@ class _InterviewQuestionModalState extends State<_InterviewQuestionModal> {
         return;
       }
 
+      final nextQuestions = response.questions;
+      final nextQuestionKeys = nextQuestions.map(_questionSelectionKey).toSet();
+
       setState(() {
-        _questions = response.questions;
-        if (response.questions.isEmpty) {
+        _questions = nextQuestions;
+        _selectedQuestions.retainAll(nextQuestionKeys);
+        if (nextQuestions.isEmpty) {
           _errorMessage = 'ระบบยังไม่ส่งคำถามกลับมา';
         }
       });
+
+      widget.onQuestionsGenerated(prompt, nextQuestions);
     } catch (e) {
       if (!mounted) {
         return;
@@ -575,10 +638,12 @@ class _InterviewQuestionModalState extends State<_InterviewQuestionModal> {
       return;
     }
 
-    widget.onSelectQuestion(content);
+    final questionKey = _questionSelectionKey(question);
+
+    widget.onSelectQuestion(content, question.id);
 
     setState(() {
-      _selectedQuestions.add(content);
+      _selectedQuestions.add(questionKey);
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -757,7 +822,7 @@ class _InterviewQuestionModalState extends State<_InterviewQuestionModal> {
                           itemBuilder: (context, index) {
                             final question = _questions[index];
                             final isSelected = _selectedQuestions.contains(
-                              question.interviewQuestion.trim(),
+                              _questionSelectionKey(question),
                             );
 
                             return Container(

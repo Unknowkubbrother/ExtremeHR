@@ -4,6 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from src.databases.db_connect import get_db
 
@@ -47,7 +48,6 @@ class ConnectionManager:
                     logger.error(f"Error sending room message to {uid}: {e}")
 
 manager = ConnectionManager()
-chat_histories = dict()
 room_roles: dict[str, dict[str, str]] = {}
 
 
@@ -87,6 +87,36 @@ async def _broadcast_room_status(room_id: str):
     )
 
 
+def _parse_created_at(timestamp: str | None) -> datetime:
+    if not timestamp:
+        return datetime.utcnow()
+
+    try:
+        return datetime.fromisoformat(timestamp)
+    except ValueError:
+        return datetime.utcnow()
+
+
+def _persist_chat_message(db: Session, room_id: str, message: dict):
+    sql_insert = text("""
+        INSERT INTO chat_histories (interview_id, user_id, message, created_at)
+        VALUES (:interview_id, :user_id, :message, :created_at)
+    """)
+    db.execute(
+        sql_insert,
+        {
+            "interview_id": int(room_id),
+            "user_id": int(message.get("speaker_id")),
+            "message": _format_chat_history_message(
+                message.get("text"),
+                message.get("role"),
+            ),
+            "created_at": _parse_created_at(message.get("timestamp")),
+        },
+    )
+    db.commit()
+
+
 @interview_ws_router.websocket("/{room_id}/{user_id}")
 async def interview_endpoint(
     websocket: WebSocket,
@@ -118,15 +148,7 @@ async def interview_endpoint(
                         await _broadcast_room_status(room_id)
                         continue
 
-                    if room_id not in chat_histories:
-                        chat_histories[room_id] = []
-
-                    chat_histories[room_id].append({
-                        "user_id": int(message.get("speaker_id")),
-                        "message": message.get("text"),
-                        "role": message.get("role"),
-                        "timestamp": message.get("timestamp"),
-                    })
+                    _persist_chat_message(db, room_id, message)
                     await manager.broadcast_to_others(room_id, user_id, message)
 
             except json.JSONDecodeError:
@@ -145,23 +167,3 @@ async def interview_endpoint(
             "user_id": user_id,
         })
         await _broadcast_room_status(room_id)
-
-        if room_id in chat_histories and chat_histories[room_id]:
-            from sqlalchemy import text
-
-            sql_insert = text("""
-                INSERT INTO chat_histories (interview_id, user_id, message, created_at)
-                VALUES (:interview_id, :user_id, :message, :created_at)
-            """)
-            for item in chat_histories[room_id]:
-                db.execute(sql_insert, {
-                    "interview_id": int(room_id),
-                    "user_id": item["user_id"],
-                    "message": _format_chat_history_message(
-                        item["message"],
-                        item.get("role"),
-                    ),
-                    "created_at": datetime.fromisoformat(item["timestamp"]),
-                })
-            db.commit()
-        chat_histories.pop(room_id, None)
