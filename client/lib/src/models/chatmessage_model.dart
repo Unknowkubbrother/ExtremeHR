@@ -1,5 +1,7 @@
 class ChatMessage {
-  static final RegExp _evaluationPrefixPattern = RegExp(r'^\[EVAL:(\d+)\]\s*');
+  static final RegExp _evaluationPrefixPattern = RegExp(
+    r'^\[HR_LOCAL_EVAL:(\d+)\]\s*',
+  );
   static final RegExp _evaluationBodyPattern = RegExp(
     r'^Evaluation Score:\s*([0-9]+(?:\.[0-9]+)?)\s*[\r\n]+Reason:\s*(.+)$',
     dotAll: true,

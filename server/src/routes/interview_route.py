@@ -13,8 +13,10 @@ from src.utils.auth_utils import get_current_user_id
 from src.routes.job_route import require_hr_role
 from typing import List
 import traceback
+import re
 
 interview_router = APIRouter()
+_HR_LOCAL_EVAL_PATTERN = re.compile(r"^\[AI\]\[HR_LOCAL_EVAL:(\d+)\]\s*")
 
 
 def _require_interview_participant_access(
@@ -40,8 +42,15 @@ def _require_interview_participant_access(
 
 def _format_chat_history_payload(row) -> dict:
     raw_message = (row.message or "").strip()
-    is_ai = raw_message.startswith("[AI]")
-    message_text = raw_message[4:].strip() if is_ai else raw_message
+    question_id = None
+    local_eval_match = _HR_LOCAL_EVAL_PATTERN.match(raw_message)
+    if local_eval_match:
+        question_id = int(local_eval_match.group(1))
+        message_text = raw_message[local_eval_match.end():].strip()
+        is_ai = True
+    else:
+        is_ai = raw_message.startswith("[AI]")
+        message_text = raw_message[4:].strip() if is_ai else raw_message
     user_role = (row.role or "").strip().lower()
 
     if is_ai:
@@ -71,6 +80,7 @@ def _format_chat_history_payload(row) -> dict:
         "user_id": row.user_id,
         "username": username,
         "full_name": full_name,
+        "question_id": question_id,
     }
 
 @interview_router.post("/apply/{job_id}",response_model=ApplyJobResponse, tags=["Interview"])
@@ -165,6 +175,11 @@ def get_chat_history(
     user_id: int = Depends(get_current_user_id),
 ):
     _require_interview_participant_access(db, interview_id, user_id)
+    current_user_role_row = db.execute(
+        text("SELECT role FROM users WHERE id = :user_id"),
+        {"user_id": user_id},
+    ).first()
+    current_user_role = (current_user_role_row.role or "").strip().lower() if current_user_role_row else ""
 
     sql_get_history = text("""
         SELECT ch.id, ch.user_id, ch.message, ch.created_at, u.username, u.role
@@ -177,6 +192,12 @@ def get_chat_history(
         sql_get_history,
         {"interview_id": interview_id},
     ).mappings().all()
+
+    if current_user_role != "hr":
+        rows = [
+            row for row in rows
+            if not _HR_LOCAL_EVAL_PATTERN.match((row.message or "").strip())
+        ]
 
     return [_format_chat_history_payload(row) for row in rows]
 

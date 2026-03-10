@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from src.enums.apply_status_enum import ApplyStatusEnum
 from datetime import datetime
+from typing import Optional
 
 class UpdateStatusRequest(BaseModel):
     status: ApplyStatusEnum
@@ -32,4 +33,4 @@ class ChatHistoryMessageResponse(BaseModel):
     user_id: int
     username: str
     full_name: str
-
+    question_id: Optional[int] = None
