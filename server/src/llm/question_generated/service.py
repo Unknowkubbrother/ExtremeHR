@@ -24,7 +24,7 @@ def get_recent_messages(db: Session, interview_id: int, limit: int = 5) -> str:
         return "No recent messages."
     
     # Reverse to show in chronological order
-    messages = [r.message for r in reversed(rows)]
+    messages = [r.message for r in reversed(rows) if not r.message.startswith("[AI]")]
     return "\n".join(messages)
 
 def summarize_hr_style(db: Session, interview_id: int, new_prompt: str) -> str:
@@ -111,10 +111,10 @@ CANDIDATE STRENGTHS:
 CANDIDATE GAPS:
 {row.candidate_gaps or "No gaps identified yet."}
 
-""".strip()
+RECENT MESSAGES (May be use for generate continue questions):
+{get_recent_messages(db, interview_id)}
 
-# RECENT MESSAGES:
-# {get_recent_messages(db, interview_id)}
+""".strip()
 
 def generate_interview_questions(
     db: Session,
