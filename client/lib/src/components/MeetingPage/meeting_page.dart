@@ -209,44 +209,52 @@ class _MeetingPageState extends State<MeetingPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            VideoMeeting(
-              isCameraOn: _isCameraOn,
-              localRenderer: _localRenderer,
-              remoteRenderer: _remoteRenderer,
-              isRemoteConnected: _isRemoteConnected,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: CardContent(
-                header: Row(
-                  children: [
-                    Icon(Icons.chat_bubble_outline, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      "INTERVIEW TRANSCRIPT",
-                      style: TextStyle(
-                        fontSize: AppFontSizes.caption,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+        child: SingleChildScrollView(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 1.2,
+            child: Column(
+              children: [
+                VideoMeeting(
+                  isCameraOn: _isCameraOn,
+                  localRenderer: _localRenderer,
+                  remoteRenderer: _remoteRenderer,
+                  isRemoteConnected: _isRemoteConnected,
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: CardContent(
+                    header: Row(
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "INTERVIEW TRANSCRIPT",
+                          style: TextStyle(
+                            fontSize: AppFontSizes.caption,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    child: Expanded(
+                      child: ChatMeeting(
+                        key: _chatKey,
+                        isMicOn: _isMicOn,
+                        canSpeak: _isRoomReady,
+                        isCallConnected: _isRemoteConnected,
+                        signalingService: _signalingService,
+                        roomId: widget.id,
                       ),
                     ),
-                  ],
-                ),
-                child: Expanded(
-                  child: ChatMeeting(
-                    key: _chatKey,
-                    isMicOn: _isMicOn,
-                    canSpeak: _isRoomReady,
-                    isCallConnected: _isRemoteConnected,
-                    signalingService: _signalingService,
-                    roomId: widget.id,
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,

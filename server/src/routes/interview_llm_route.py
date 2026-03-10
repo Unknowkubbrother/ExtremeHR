@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from src.databases.db_connect import get_db
+from src.databases.db_connect import SessionLocal, get_db
 from src.enums.apply_status_enum import ApplyStatusEnum
 from src.llm.interview_summary.agent import (
     InterviewSummaryModel,
@@ -100,6 +100,18 @@ def _require_hr_question_access(db: Session, question_id: int, hr_user_id: int):
             status_code=403,
             detail="Not authorized or question not found",
         )
+
+
+def _evaluate_answer_in_thread(question_id: int, user_answer: str):
+    db = SessionLocal()
+    try:
+        return evaluate_llm_answer(
+            db=db,
+            question_id=question_id,
+            user_answer=user_answer,
+        )
+    finally:
+        db.close()
 
 @interview_llm_router.get("/context/{interview_id}", tags=["Interview-llm"])
 async def get_interview_context(interview_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
@@ -227,7 +239,7 @@ def generate_questions(
             hr_prompt=request.hr_prompt
         )
 
-        save_generated_questions(db, request.interview_id, results)
+        results = save_generated_questions(db, request.interview_id, results)
         
         return {"message": request.hr_prompt, "questions": results.model_dump()}
     except LLMConfigurationError as e:
@@ -306,20 +318,22 @@ def get_interview_summary(
     "/evaluate-question",
     tags=["Interview-llm"],
 )
-def evaluate_answer(
+async def evaluate_answer(
     request: EvaluateRequest,
     db: Session = Depends(get_db),
     hr_user_id: int = Depends(require_hr_role),
 ):
     try:
         _require_hr_question_access(db, request.question_id, hr_user_id)
-        result = evaluate_llm_answer(
-            db=db,
-            question_id=request.question_id,
-            user_answer=request.user_answer
+        result = await asyncio.to_thread(
+            _evaluate_answer_in_thread,
+            request.question_id,
+            request.user_answer,
         )
         return result
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

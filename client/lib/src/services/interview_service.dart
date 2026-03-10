@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:client/src/models/chatmessage_model.dart';
 import 'package:client/src/models/interview_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -161,6 +162,38 @@ class InterviewService {
     }
   }
 
+  Future<List<ChatMessage>> getChatHistory(
+    String token,
+    String interviewId,
+  ) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.get(
+      Uri.parse('$apiUrl/interview/$interviewId/chat-history'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    dynamic responseBody;
+    try {
+      responseBody = jsonDecode(response.body);
+    } catch (_) {
+      responseBody = response.body;
+    }
+
+    if (response.statusCode == 200 && responseBody is List) {
+      return responseBody
+          .whereType<Map>()
+          .map(
+            (item) => ChatMessage.fromApiJson(Map<String, dynamic>.from(item)),
+          )
+          .toList();
+    }
+
+    throw Exception(_extractErrorMessage(responseBody));
+  }
+
   Future<GeneratedInterviewQuestionResponse> generateInterviewQuestions(
     String token,
     String interviewId,
@@ -193,6 +226,35 @@ class InterviewService {
 
     if (response.statusCode == 200 && responseBody is Map<String, dynamic>) {
       return GeneratedInterviewQuestionResponse.fromJson(responseBody);
+    }
+
+    throw Exception(_extractErrorMessage(responseBody));
+  }
+
+  Future<QuestionEvaluationResult> evaluateQuestion(
+    String token,
+    int questionId,
+    String userAnswer,
+  ) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.post(
+      Uri.parse('$apiUrl/interview-llm/evaluate-question'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'question_id': questionId, 'user_answer': userAnswer}),
+    );
+
+    dynamic responseBody;
+    try {
+      responseBody = jsonDecode(response.body);
+    } catch (_) {
+      responseBody = response.body;
+    }
+
+    if (response.statusCode == 200 && responseBody is Map<String, dynamic>) {
+      return QuestionEvaluationResult.fromJson(responseBody);
     }
 
     throw Exception(_extractErrorMessage(responseBody));

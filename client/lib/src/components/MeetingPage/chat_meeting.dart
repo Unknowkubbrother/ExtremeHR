@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:client/src/components/MeetingPage/chatbubble.dart';
+import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/models/chatmessage_model.dart';
+import 'package:client/src/models/interview_model.dart';
 import 'package:client/src/services/auth_storage.dart';
+import 'package:client/src/services/interview_service.dart';
 import 'package:client/src/services/signaling_service.dart';
 import 'package:client/src/services/user_services.dart';
 import 'package:flutter/material.dart';
@@ -32,6 +35,7 @@ class ChatMeeting extends StatefulWidget {
 class ChatMeetingState extends State<ChatMeeting> {
   final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speechToText = stt.SpeechToText();
+  final InterviewService _interviewService = InterviewService();
 
   static const String _aiRole = 'AI';
   static const String _aiUsername = 'ai';
@@ -41,6 +45,9 @@ class ChatMeetingState extends State<ChatMeeting> {
   bool _isAttempting = false;
   bool _isNewMessage = true;
   bool _isInitialized = false;
+  bool _isEvaluating = false;
+  bool _isLoadingHistory = false;
+  bool _hasLoadedHistory = false;
 
   String? _currentUserRole;
   String? _currentUserName;
@@ -103,6 +110,7 @@ class ChatMeetingState extends State<ChatMeeting> {
             _currentUserFullName = user.username;
           });
         }
+        await _loadChatHistory(token);
       }
     } catch (e) {
       debugPrint('Error fetching identity: $e');
@@ -113,6 +121,50 @@ class ChatMeetingState extends State<ChatMeeting> {
         });
       }
     }
+  }
+
+  Future<void> _loadChatHistory(String token) async {
+    if (_hasLoadedHistory || _isLoadingHistory || widget.roomId == null) {
+      return;
+    }
+
+    _isLoadingHistory = true;
+
+    try {
+      final historyMessages = await _interviewService.getChatHistory(
+        token,
+        widget.roomId!,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final existingKeys = _messages.map(_messageKey).toSet();
+      final newMessages = historyMessages
+          .where((message) => !existingKeys.contains(_messageKey(message)))
+          .toList();
+
+      setState(() {
+        _messages.addAll(newMessages);
+        _hasLoadedHistory = true;
+      });
+      Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+    } catch (e) {
+      debugPrint('Failed to load chat history: $e');
+    } finally {
+      _isLoadingHistory = false;
+    }
+  }
+
+  String _messageKey(ChatMessage message) {
+    return [
+      message.role,
+      message.userId.toString(),
+      message.time,
+      message.text,
+      message.questionId?.toString() ?? '',
+    ].join('|');
   }
 
   Future<void> _initSpeech() async {
@@ -285,7 +337,11 @@ class ChatMeetingState extends State<ChatMeeting> {
     return '${now.minute}:${now.second.toString().padLeft(2, '0')}';
   }
 
-  ChatMessage _buildAiChatMessage(String text, {String? time}) {
+  ChatMessage _buildAiChatMessage(
+    String text, {
+    String? time,
+    int? questionId,
+  }) {
     return ChatMessage(
       role: _aiRole,
       time: time ?? _currentTimeLabel(),
@@ -293,10 +349,11 @@ class ChatMeetingState extends State<ChatMeeting> {
       userId: _currentUserId ?? 1,
       username: _aiUsername,
       fullName: _aiFullName,
+      questionId: questionId,
     );
   }
 
-  void addAiMessage(String text) {
+  void _pushAiMessage(String text, {int? questionId}) {
     final trimmedText = text.trim();
     if (trimmedText.isEmpty || !mounted || !widget.canSpeak) {
       return;
@@ -305,7 +362,9 @@ class ChatMeetingState extends State<ChatMeeting> {
     final time = _currentTimeLabel();
 
     setState(() {
-      _messages.add(_buildAiChatMessage(trimmedText, time: time));
+      _messages.add(
+        _buildAiChatMessage(trimmedText, time: time, questionId: questionId),
+      );
     });
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
 
@@ -318,11 +377,16 @@ class ChatMeetingState extends State<ChatMeeting> {
         'speaker_id': _currentUserId.toString(),
         'role': _aiRole,
         'text': trimmedText,
+        'question_id': questionId,
         'is_final': true,
         'timestamp': DateTime.now().toIso8601String(),
         'time': time,
       });
     }
+  }
+
+  void addAiMessage(String text, int? questionId) {
+    _pushAiMessage(text, questionId: questionId);
   }
 
   void _listen() async {
@@ -464,14 +528,140 @@ class ChatMeetingState extends State<ChatMeeting> {
           userId: int.tryParse(message['speaker_id']?.toString() ?? '2') ?? 2,
           username: username,
           fullName: fullName,
+          questionId: message['question_id'] is num
+              ? (message['question_id'] as num).toInt()
+              : int.tryParse(message['question_id']?.toString() ?? ''),
         ),
       );
     });
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
   }
 
+  bool _isCandidateRole(String role) {
+    return role.toUpperCase() == 'CANDIDATE';
+  }
+
+  int? _getLatestEvaluableQuestionId() {
+    for (var index = _messages.length - 1; index >= 0; index--) {
+      final message = _messages[index];
+      if (message.role.toUpperCase() == _aiRole && message.questionId != null) {
+        final questionId = message.questionId!;
+        return _hasEvaluationForQuestion(questionId, startIndex: index + 1)
+            ? null
+            : questionId;
+      }
+    }
+    return null;
+  }
+
+  bool _hasEvaluationForQuestion(int questionId, {required int startIndex}) {
+    for (var index = startIndex; index < _messages.length; index++) {
+      if (_messages[index].evaluationQuestionId == questionId) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  int _getLatestEvaluableQuestionIndex(int questionId) {
+    for (var index = _messages.length - 1; index >= 0; index--) {
+      final message = _messages[index];
+      if (message.role.toUpperCase() == _aiRole &&
+          message.questionId == questionId) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  String _getCandidateAnswerForQuestion(int questionId) {
+    final questionIndex = _getLatestEvaluableQuestionIndex(questionId);
+    if (questionIndex == -1) {
+      return '';
+    }
+
+    final answerParts = <String>[];
+    for (var index = questionIndex + 1; index < _messages.length; index++) {
+      final message = _messages[index];
+      if (_isCandidateRole(message.role)) {
+        final text = message.text.trim();
+        if (text.isNotEmpty) {
+          answerParts.add(text);
+        }
+      }
+    }
+
+    return answerParts.join(' ').trim();
+  }
+
+  String _formatEvaluationText(QuestionEvaluationResult result) {
+    return '[EVAL:${result.questionId}] Evaluation Score: ${result.score.toStringAsFixed(2)}\nReason: ${result.reason}';
+  }
+
+  Future<void> _evaluateQuestion() async {
+    final evaluableQuestionId = _getLatestEvaluableQuestionId();
+    if (evaluableQuestionId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No evaluable AI question found')),
+        );
+      }
+      return;
+    }
+
+    final candidateAnswer = _getCandidateAnswerForQuestion(evaluableQuestionId);
+    if (candidateAnswer.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Candidate answer not found yet')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isEvaluating = true);
+
+    try {
+      final storage = AuthStorage();
+      final token = await storage.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('No auth token found');
+      }
+
+      final result = await _interviewService.evaluateQuestion(
+        token,
+        evaluableQuestionId,
+        candidateAnswer,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _pushAiMessage(_formatEvaluationText(result));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isEvaluating = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isHrViewer = (_currentUserRole ?? '').toUpperCase() == 'HR';
+    final evaluableQuestionId = _getLatestEvaluableQuestionId();
+    final hasCandidateAnswer = evaluableQuestionId != null
+        ? _getCandidateAnswerForQuestion(evaluableQuestionId).isNotEmpty
+        : false;
+    final showEvaluateButton =
+        isHrViewer && evaluableQuestionId != null && hasCandidateAnswer;
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -514,8 +704,56 @@ class ChatMeetingState extends State<ChatMeeting> {
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-              itemCount: _messages.length,
+              itemCount: showEvaluateButton
+                  ? _messages.length + 1
+                  : _messages.length,
               itemBuilder: (context, index) {
+                if (showEvaluateButton && index == _messages.length) {
+                  return Align(
+                    alignment: Alignment.center,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      child: SizedBox(
+                        width: 240,
+                        child: ElevatedButton.icon(
+                          onPressed: _isEvaluating ? null : _evaluateQuestion,
+                          icon: _isEvaluating
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.analytics_outlined, size: 20),
+                          label: Text(
+                            _isEvaluating
+                                ? "Evaluating..."
+                                : "Evaluate Question",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 15,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
                 return ChatBubble(
                   message: _messages[index],
                   currentUserId: _currentUserId,
