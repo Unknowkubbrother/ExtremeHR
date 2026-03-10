@@ -61,6 +61,7 @@ class ChatMeetingState extends State<ChatMeeting> {
   Timer? _silenceTimer;
   Timer? _guardianTimer;
   Timer? _listenRestartTimer;
+  int _sttSessionToken = 0;
 
   final List<ChatMessage> _messages = [];
 
@@ -190,6 +191,10 @@ class ChatMeetingState extends State<ChatMeeting> {
     );
 
     if (status == 'listening') {
+      if (!_canListen) {
+        return;
+      }
+
       _isAttempting = false;
       if (mounted) {
         setState(() => _isListening = true);
@@ -198,6 +203,10 @@ class ChatMeetingState extends State<ChatMeeting> {
     }
 
     if (status != 'done' && status != 'notListening') {
+      return;
+    }
+
+    if (_canListen && _speechToText.isListening) {
       return;
     }
 
@@ -272,6 +281,12 @@ class ChatMeetingState extends State<ChatMeeting> {
     _lastDisplayedText = '';
   }
 
+  void _invalidateSpeechSession() {
+    _sttSessionToken += 1;
+    _silenceTimer?.cancel();
+    _listenRestartTimer?.cancel();
+  }
+
   void _clearDraftState({required bool removeDraft, required bool markIdle}) {
     if (!mounted) {
       _isAttempting = false;
@@ -300,15 +315,14 @@ class ChatMeetingState extends State<ChatMeeting> {
   }
 
   void _pauseForMutedMicrophone({required bool removeDraft}) {
-    _silenceTimer?.cancel();
-    _listenRestartTimer?.cancel();
-    _clearDraftState(removeDraft: removeDraft, markIdle: false);
+    _invalidateSpeechSession();
+    _speechToText.cancel();
+    _clearDraftState(removeDraft: removeDraft, markIdle: true);
   }
 
   void _stopListeningSession({required bool removeDraft}) {
-    _silenceTimer?.cancel();
-    _listenRestartTimer?.cancel();
-    _speechToText.stop();
+    _invalidateSpeechSession();
+    _speechToText.cancel();
     _clearDraftState(removeDraft: removeDraft, markIdle: true);
   }
 
@@ -389,11 +403,30 @@ class ChatMeetingState extends State<ChatMeeting> {
     _pushAiMessage(text, questionId: questionId);
   }
 
+  void _addLocalAiMessage(String text, {int? questionId}) {
+    final trimmedText = text.trim();
+    if (trimmedText.isEmpty || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _messages.add(
+        _buildAiChatMessage(
+          trimmedText,
+          time: _currentTimeLabel(),
+          questionId: questionId,
+        ),
+      );
+    });
+    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+  }
+
   void _listen() async {
     if (_isListening || _isAttempting || !_canListen) {
       return;
     }
 
+    final sessionToken = ++_sttSessionToken;
     _isAttempting = true;
     debugPrint('STT: Starting listen loop...');
 
@@ -408,6 +441,10 @@ class ChatMeetingState extends State<ChatMeeting> {
           partialResults: true,
         ),
         onResult: (val) {
+          if (sessionToken != _sttSessionToken) {
+            return;
+          }
+
           if (!mounted || !widget.isMicOn || !widget.canSpeak) {
             return;
           }
@@ -433,6 +470,10 @@ class ChatMeetingState extends State<ChatMeeting> {
           _lastDisplayedText = newText;
           _silenceTimer?.cancel();
           _silenceTimer = Timer(const Duration(seconds: 2), () {
+            if (sessionToken != _sttSessionToken) {
+              return;
+            }
+
             if (!mounted || _currentText.isEmpty || !widget.canSpeak) {
               return;
             }
@@ -492,7 +533,9 @@ class ChatMeetingState extends State<ChatMeeting> {
       );
     } catch (e) {
       debugPrint('STT Listen Exception: $e');
-      _isAttempting = false;
+      if (sessionToken == _sttSessionToken) {
+        _isAttempting = false;
+      }
     }
   }
 
@@ -595,7 +638,7 @@ class ChatMeetingState extends State<ChatMeeting> {
   }
 
   String _formatEvaluationText(QuestionEvaluationResult result) {
-    return '[EVAL:${result.questionId}] Evaluation Score: ${result.score.toStringAsFixed(2)}\nReason: ${result.reason}';
+    return '[HR_LOCAL_EVAL:${result.questionId}] Evaluation Score: ${result.score.toStringAsFixed(2)}\nReason: ${result.reason}';
   }
 
   Future<void> _evaluateQuestion() async {
@@ -638,7 +681,7 @@ class ChatMeetingState extends State<ChatMeeting> {
         return;
       }
 
-      _pushAiMessage(_formatEvaluationText(result));
+      _addLocalAiMessage(_formatEvaluationText(result));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -113,6 +113,48 @@ def _evaluate_answer_in_thread(question_id: int, user_answer: str):
     finally:
         db.close()
 
+
+def _save_local_hr_evaluation(
+    db: Session,
+    question_id: int,
+    hr_user_id: int,
+    score: float,
+    reason: str,
+):
+    question_row = db.execute(
+        text("""
+            SELECT iq.interview_id
+            FROM interview_questions iq
+            JOIN interviews i ON iq.interview_id = i.id
+            JOIN jobs j ON i.job_id = j.id
+            WHERE iq.id = :question_id AND j.user_id = :hr_user_id
+        """),
+        {"question_id": question_id, "hr_user_id": hr_user_id},
+    ).first()
+
+    if not question_row:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized or question not found",
+        )
+
+    sql_insert = text("""
+        INSERT INTO chat_histories (interview_id, user_id, message, created_at)
+        VALUES (:interview_id, :user_id, :message, NOW())
+    """)
+    db.execute(
+        sql_insert,
+        {
+            "interview_id": question_row.interview_id,
+            "user_id": hr_user_id,
+            "message": (
+                f"[AI][HR_LOCAL_EVAL:{question_id}] "
+                f"Evaluation Score: {score:.2f}\nReason: {reason}"
+            ),
+        },
+    )
+    db.commit()
+
 @interview_llm_router.get("/context/{interview_id}", tags=["Interview-llm"])
 async def get_interview_context(interview_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     sql_check_user = text("SELECT role FROM users WHERE id = :user_id")
@@ -329,6 +371,13 @@ async def evaluate_answer(
             _evaluate_answer_in_thread,
             request.question_id,
             request.user_answer,
+        )
+        _save_local_hr_evaluation(
+            db,
+            request.question_id,
+            hr_user_id,
+            float(result.get("score", 0)),
+            str(result.get("reason", "")),
         )
         return result
     except HTTPException:
