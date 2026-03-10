@@ -65,11 +65,10 @@ class ChatMeetingState extends State<ChatMeeting> {
 
   final List<ChatMessage> _messages = [];
 
-  bool get _canListen =>
-      widget.isMicOn &&
-      widget.canSpeak &&
-      widget.isCallConnected &&
-      _isInitialized;
+  bool get _shouldKeepSpeechSession =>
+      widget.canSpeak && widget.isCallConnected && _isInitialized;
+
+  bool get _canSendSpeech => _shouldKeepSpeechSession && widget.isMicOn;
 
   @override
   void initState() {
@@ -83,12 +82,12 @@ class ChatMeetingState extends State<ChatMeeting> {
     _guardianTimer?.cancel();
     _guardianTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted &&
-          _canListen &&
+          _shouldKeepSpeechSession &&
           !_speechToText.isListening &&
           !_isAttempting &&
           !(_listenRestartTimer?.isActive ?? false)) {
         debugPrint(
-          'STT Guardian: Mic should be ON but is OFF. Force restarting...',
+          'STT Guardian: Speech session should be active but is idle. Force restarting...',
         );
         _scheduleListenStart(const Duration(milliseconds: 300));
       }
@@ -191,7 +190,7 @@ class ChatMeetingState extends State<ChatMeeting> {
     );
 
     if (status == 'listening') {
-      if (!_canListen) {
+      if (!_shouldKeepSpeechSession) {
         return;
       }
 
@@ -206,18 +205,18 @@ class ChatMeetingState extends State<ChatMeeting> {
       return;
     }
 
-    if (_canListen && _speechToText.isListening) {
-      return;
-    }
-
     _isAttempting = false;
     _resetDraftState();
 
-    if (mounted && !_canListen) {
+    if (_shouldKeepSpeechSession && _speechToText.isListening) {
+      return;
+    }
+
+    if (mounted && !_shouldKeepSpeechSession) {
       setState(() => _isListening = false);
     }
 
-    if (mounted && _canListen) {
+    if (mounted && _shouldKeepSpeechSession) {
       _scheduleListenStart();
     }
   }
@@ -226,13 +225,13 @@ class ChatMeetingState extends State<ChatMeeting> {
     Duration delay = const Duration(milliseconds: 800),
   ]) {
     _listenRestartTimer?.cancel();
-    if (!_canListen) {
+    if (!_shouldKeepSpeechSession) {
       return;
     }
 
     _listenRestartTimer = Timer(delay, () {
       if (!mounted ||
-          !_canListen ||
+          !_shouldKeepSpeechSession ||
           _speechToText.isListening ||
           _isAttempting) {
         return;
@@ -261,7 +260,13 @@ class ChatMeetingState extends State<ChatMeeting> {
       _stopListeningSession(removeDraft: true);
     }
 
-    if ((micTurnedOn || speakingEnabled || callConnected) && _canListen) {
+    if (micTurnedOn && _shouldKeepSpeechSession) {
+      _clearDraftState(
+        removeDraft: true,
+        markIdle: false,
+        resetRecognitionCursor: false,
+      );
+    } else if ((speakingEnabled || callConnected) && _shouldKeepSpeechSession) {
       _resetDraftState();
       _isAttempting = false;
       _silenceTimer?.cancel();
@@ -274,8 +279,10 @@ class ChatMeetingState extends State<ChatMeeting> {
     }
   }
 
-  void _resetDraftState() {
-    _committedLength = 0;
+  void _resetDraftState({bool resetRecognitionCursor = true}) {
+    if (resetRecognitionCursor) {
+      _committedLength = 0;
+    }
     _isNewMessage = true;
     _currentText = '';
     _lastDisplayedText = '';
@@ -287,13 +294,17 @@ class ChatMeetingState extends State<ChatMeeting> {
     _listenRestartTimer?.cancel();
   }
 
-  void _clearDraftState({required bool removeDraft, required bool markIdle}) {
+  void _clearDraftState({
+    required bool removeDraft,
+    required bool markIdle,
+    bool resetRecognitionCursor = true,
+  }) {
     if (!mounted) {
       _isAttempting = false;
       if (markIdle) {
         _isListening = false;
       }
-      _resetDraftState();
+      _resetDraftState(resetRecognitionCursor: resetRecognitionCursor);
       return;
     }
 
@@ -310,20 +321,61 @@ class ChatMeetingState extends State<ChatMeeting> {
       if (markIdle) {
         _isListening = false;
       }
-      _resetDraftState();
+      _resetDraftState(resetRecognitionCursor: resetRecognitionCursor);
     });
   }
 
   void _pauseForMutedMicrophone({required bool removeDraft}) {
-    _invalidateSpeechSession();
-    _speechToText.cancel();
-    _clearDraftState(removeDraft: removeDraft, markIdle: true);
+    _silenceTimer?.cancel();
+    _listenRestartTimer?.cancel();
+    _clearDraftState(
+      removeDraft: removeDraft,
+      markIdle: false,
+      resetRecognitionCursor: false,
+    );
   }
 
   void _stopListeningSession({required bool removeDraft}) {
     _invalidateSpeechSession();
     _speechToText.cancel();
-    _clearDraftState(removeDraft: removeDraft, markIdle: true);
+    _clearDraftState(
+      removeDraft: removeDraft,
+      markIdle: true,
+      resetRecognitionCursor: true,
+    );
+  }
+
+  void _discardMutedRecognition(String fullText) {
+    _silenceTimer?.cancel();
+
+    final nextCursor = fullText.length;
+    if (!mounted) {
+      _committedLength = nextCursor;
+      _resetDraftState(resetRecognitionCursor: false);
+      return;
+    }
+
+    final shouldRemoveDraft =
+        _currentText.isNotEmpty &&
+        _messages.isNotEmpty &&
+        _messages.last.userId == (_currentUserId ?? 1) &&
+        _messages.last.role == (_currentUserRole ?? 'HR');
+
+    if (!shouldRemoveDraft) {
+      _committedLength = nextCursor;
+      _currentText = '';
+      _lastDisplayedText = '';
+      _isNewMessage = true;
+      return;
+    }
+
+    setState(() {
+      _messages.removeLast();
+      _committedLength = nextCursor;
+      _currentText = '';
+      _lastDisplayedText = '';
+      _isNewMessage = true;
+    });
   }
 
   @override
@@ -422,7 +474,7 @@ class ChatMeetingState extends State<ChatMeeting> {
   }
 
   void _listen() async {
-    if (_isListening || _isAttempting || !_canListen) {
+    if (_isListening || _isAttempting || !_shouldKeepSpeechSession) {
       return;
     }
 
@@ -445,12 +497,21 @@ class ChatMeetingState extends State<ChatMeeting> {
             return;
           }
 
-          if (!mounted || !widget.isMicOn || !widget.canSpeak) {
+          if (!mounted || !_shouldKeepSpeechSession) {
             return;
           }
 
           final fullText = val.recognizedWords;
           if (fullText.trim().isEmpty) {
+            return;
+          }
+
+          if (!widget.isMicOn) {
+            _discardMutedRecognition(fullText);
+            return;
+          }
+
+          if (!_canSendSpeech) {
             return;
           }
 
@@ -474,7 +535,7 @@ class ChatMeetingState extends State<ChatMeeting> {
               return;
             }
 
-            if (!mounted || _currentText.isEmpty || !widget.canSpeak) {
+            if (!mounted || _currentText.isEmpty || !_canSendSpeech) {
               return;
             }
 
@@ -587,6 +648,10 @@ class ChatMeetingState extends State<ChatMeeting> {
   int? _getLatestEvaluableQuestionId() {
     for (var index = _messages.length - 1; index >= 0; index--) {
       final message = _messages[index];
+      if (message.isEvaluationMessage) {
+        continue;
+      }
+
       if (message.role.toUpperCase() == _aiRole && message.questionId != null) {
         final questionId = message.questionId!;
         return _hasEvaluationForQuestion(questionId, startIndex: index + 1)
@@ -609,6 +674,10 @@ class ChatMeetingState extends State<ChatMeeting> {
   int _getLatestEvaluableQuestionIndex(int questionId) {
     for (var index = _messages.length - 1; index >= 0; index--) {
       final message = _messages[index];
+      if (message.isEvaluationMessage) {
+        continue;
+      }
+
       if (message.role.toUpperCase() == _aiRole &&
           message.questionId == questionId) {
         return index;

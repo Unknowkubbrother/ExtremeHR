@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -5,11 +6,13 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 class SignalingService {
   WebSocketChannel? _channel;
+  StreamSubscription? _messageSubscription;
   Function(Map<String, dynamic>)? onMessageReceived;
   String? _roomId;
   String? _userId;
 
   void connect(String roomId, String userId, String role) {
+    disconnect();
     _roomId = roomId;
     _userId = userId;
 
@@ -25,7 +28,7 @@ class SignalingService {
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
-      _channel?.stream.listen(
+      _messageSubscription = _channel?.stream.listen(
         (data) {
           if (kDebugMode) print('WS Received: $data');
           final decoded = jsonDecode(data);
@@ -57,7 +60,11 @@ class SignalingService {
   }
 
   void disconnect() {
+    _messageSubscription?.cancel();
+    _messageSubscription = null;
     _channel?.sink.close();
     _channel = null;
+    _roomId = null;
+    _userId = null;
   }
 }

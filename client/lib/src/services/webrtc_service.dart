@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'signaling_service.dart';
@@ -82,6 +83,15 @@ class WebRTCService {
   }
 
   Future<void> initPeerConnection(String roomId, String userId) async {
+    await _disposePeerConnection();
+    await _createPeerConnection(roomId, userId);
+  }
+
+  Future<void> restartPeerConnection(String roomId, String userId) async {
+    await initPeerConnection(roomId, userId);
+  }
+
+  Future<void> _createPeerConnection(String roomId, String userId) async {
     _pendingIceCandidates.clear();
     _hasRemoteDescription = false;
 
@@ -130,6 +140,46 @@ class WebRTCService {
         onRemoteStream?.call(_remoteStream!);
       }
     };
+  }
+
+  Future<void> _disposePeerConnection() async {
+    _pendingIceCandidates.clear();
+    _hasRemoteDescription = false;
+
+    final peerConnection = _peerConnection;
+    final remoteStream = _remoteStream;
+    _peerConnection = null;
+    _remoteStream = null;
+
+    if (peerConnection != null) {
+      try {
+        await peerConnection.close();
+      } catch (e) {
+        if (kDebugMode) print('Error closing peer connection: $e');
+      }
+
+      try {
+        await peerConnection.dispose();
+      } catch (e) {
+        if (kDebugMode) print('Error disposing peer connection: $e');
+      }
+    }
+
+    if (remoteStream != null) {
+      for (final track in remoteStream.getTracks()) {
+        try {
+          track.stop();
+        } catch (e) {
+          if (kDebugMode) print('Error stopping remote track: $e');
+        }
+      }
+
+      try {
+        await remoteStream.dispose();
+      } catch (e) {
+        if (kDebugMode) print('Error disposing remote stream: $e');
+      }
+    }
   }
 
   Future<void> createOffer(
@@ -250,10 +300,12 @@ class WebRTCService {
   }
 
   void dispose() {
-    _localStream?.getTracks().forEach((track) => track.stop());
-    _localStream?.dispose();
-    _remoteStream?.dispose();
-    _peerConnection?.close();
-    _peerConnection?.dispose();
+    final localStream = _localStream;
+    _localStream = null;
+    if (localStream != null) {
+      localStream.getTracks().forEach((track) => track.stop());
+      unawaited(localStream.dispose());
+    }
+    unawaited(_disposePeerConnection());
   }
 }

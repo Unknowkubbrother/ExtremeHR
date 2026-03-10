@@ -21,6 +21,7 @@ from src.schemas.interview_schema import ApplyJobResponse
 
 from src.utils.auth_utils import get_current_user_id
 import asyncio
+from datetime import datetime
 
 from src.utils.llm_utils import llm_generate_to_string
 
@@ -140,7 +141,7 @@ def _save_local_hr_evaluation(
 
     sql_insert = text("""
         INSERT INTO chat_histories (interview_id, user_id, message, created_at)
-        VALUES (:interview_id, :user_id, :message, NOW())
+        VALUES (:interview_id, :user_id, :message, :created_at)
     """)
     db.execute(
         sql_insert,
@@ -151,6 +152,7 @@ def _save_local_hr_evaluation(
                 f"[AI][HR_LOCAL_EVAL:{question_id}] "
                 f"Evaluation Score: {score:.2f}\nReason: {reason}"
             ),
+            "created_at": datetime.now(),
         },
     )
     db.commit()
@@ -268,12 +270,12 @@ resume:
 def generate_questions(
     request: GenerateRequest,
     db: Session = Depends(get_db),
-    #hr_user_id: int = Depends(require_hr_role),
+    hr_user_id: int = Depends(require_hr_role),
 ):
     import traceback
 
     try:
-        #_require_hr_interview_access(db, request.interview_id, hr_user_id)
+        _require_hr_interview_access(db, request.interview_id, hr_user_id)
 
         results = generate_interview_questions(
             db=db,

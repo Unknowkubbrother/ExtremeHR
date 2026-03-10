@@ -4,6 +4,7 @@ class JobHR {
   final String company;
   final int candidateCount;
   final int approvedCount;
+  final int interviewCount;
   final int waitingCount;
   final int headcount;
   final DateTime postedAt;
@@ -14,6 +15,7 @@ class JobHR {
     required this.company,
     required this.candidateCount,
     required this.approvedCount,
+    required this.interviewCount,
     required this.waitingCount,
     required this.headcount,
     required this.postedAt,
@@ -26,6 +28,7 @@ class JobHR {
       company: json['company'],
       candidateCount: json['candidate_count'] ?? 0,
       approvedCount: json['approved_count'] ?? 0,
+      interviewCount: json['interview_count'] ?? 0,
       waitingCount: json['waiting_count'] ?? 0,
       headcount: json['headcount'] ?? 0,
       postedAt: DateTime.parse(json['postedAt']),
@@ -39,6 +42,7 @@ class JobHR {
       'company': company,
       'candidate_count': candidateCount,
       'approved_count': approvedCount,
+      'interview_count': interviewCount,
       'waiting_count': waitingCount,
       'headcount': headcount,
     };

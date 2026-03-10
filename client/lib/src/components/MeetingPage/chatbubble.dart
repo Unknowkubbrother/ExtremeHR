@@ -108,6 +108,16 @@ class _EvaluationBubble extends StatelessWidget {
     return Colors.red.shade700;
   }
 
+  String _formatScoreLabel(double score) {
+    final scaledScore = score * 5;
+    final hasDecimal =
+        (scaledScore - scaledScore.roundToDouble()).abs() > 0.001;
+    final scoreText = hasDecimal
+        ? scaledScore.toStringAsFixed(1)
+        : scaledScore.toStringAsFixed(0);
+    return '$scoreText/5';
+  }
+
   @override
   Widget build(BuildContext context) {
     final score = message.evaluationScore ?? 0;
@@ -177,7 +187,7 @@ class _EvaluationBubble extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    score.toStringAsFixed(2),
+                    _formatScoreLabel(score),
                     style: TextStyle(
                       color: scoreColor,
                       fontWeight: FontWeight.w800,
