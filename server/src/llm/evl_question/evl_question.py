@@ -92,7 +92,7 @@ def save_question_evaluation(
     db.commit()
 
 
-def evaluate_single_answer(db: Session, question_id: int, user_answer: str):
+def evaluate_llm_answer(db: Session, question_id: int, user_answer: str):
     if not user_answer or not user_answer.strip():
         raise ValueError("user_answer is empty")
 
@@ -107,10 +107,6 @@ def evaluate_single_answer(db: Session, question_id: int, user_answer: str):
         "expected_answer": row["expected_answer"] or [],
         "user_answer": user_answer.strip(),
     })
-
-    print("=== LLM EVALUATION RESULT ===")
-
-    print(result)
 
     score = float(result.score)
     reason = result.reason.strip()
