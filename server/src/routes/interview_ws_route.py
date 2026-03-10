@@ -4,6 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from src.databases.db_connect import get_db
 
@@ -19,19 +20,52 @@ class ConnectionManager:
         await websocket.accept()
         if room_id not in self.active_rooms:
             self.active_rooms[room_id] = {}
+        previous_socket = self.active_rooms[room_id].get(user_id)
+        if previous_socket is not None and previous_socket is not websocket:
+            logger.info(
+                "Replacing existing websocket for user %s in room %s",
+                user_id,
+                room_id,
+            )
+            try:
+                await previous_socket.close(code=4001, reason="Reconnected")
+            except Exception as e:
+                logger.warning(
+                    "Error closing previous websocket for user %s in room %s: %s",
+                    user_id,
+                    room_id,
+                    e,
+                )
         self.active_rooms[room_id][user_id] = websocket
         logger.info(f"User {user_id} connected to room {room_id}")
 
-    def disconnect(self, room_id: str, user_id: str):
-        if room_id in self.active_rooms and user_id in self.active_rooms[room_id]:
-            del self.active_rooms[room_id][user_id]
-            if not self.active_rooms[room_id]:
-                del self.active_rooms[room_id]
-            logger.info(f"User {user_id} disconnected from room {room_id}")
+    def disconnect(
+        self,
+        room_id: str,
+        user_id: str,
+        websocket: WebSocket | None = None,
+    ) -> bool:
+        if room_id not in self.active_rooms or user_id not in self.active_rooms[room_id]:
+            return False
+
+        active_socket = self.active_rooms[room_id][user_id]
+        if websocket is not None and active_socket is not websocket:
+            logger.info(
+                "Ignoring disconnect from stale websocket for user %s in room %s",
+                user_id,
+                room_id,
+            )
+            return False
+
+        del self.active_rooms[room_id][user_id]
+        if not self.active_rooms[room_id]:
+            del self.active_rooms[room_id]
+        logger.info(f"User {user_id} disconnected from room {room_id}")
+        return True
 
     async def broadcast_to_others(self, room_id: str, sender_id: str, message: dict):
         if room_id in self.active_rooms:
-            for uid, ws in self.active_rooms[room_id].items():
+            for uid, ws in list(self.active_rooms[room_id].items()):
                 if uid != sender_id:
                     try:
                         await ws.send_json(message)
@@ -40,14 +74,13 @@ class ConnectionManager:
 
     async def broadcast_to_room(self, room_id: str, message: dict):
         if room_id in self.active_rooms:
-            for uid, ws in self.active_rooms[room_id].items():
+            for uid, ws in list(self.active_rooms[room_id].items()):
                 try:
                     await ws.send_json(message)
                 except Exception as e:
                     logger.error(f"Error sending room message to {uid}: {e}")
 
 manager = ConnectionManager()
-chat_histories = dict()
 room_roles: dict[str, dict[str, str]] = {}
 
 
@@ -87,6 +120,36 @@ async def _broadcast_room_status(room_id: str):
     )
 
 
+def _parse_created_at(timestamp: str | None) -> datetime:
+    if not timestamp:
+        return datetime.utcnow()
+
+    try:
+        return datetime.fromisoformat(timestamp)
+    except ValueError:
+        return datetime.utcnow()
+
+
+def _persist_chat_message(db: Session, room_id: str, message: dict):
+    sql_insert = text("""
+        INSERT INTO chat_histories (interview_id, user_id, message, created_at)
+        VALUES (:interview_id, :user_id, :message, :created_at)
+    """)
+    db.execute(
+        sql_insert,
+        {
+            "interview_id": int(room_id),
+            "user_id": int(message.get("speaker_id")),
+            "message": _format_chat_history_message(
+                message.get("text"),
+                message.get("role"),
+            ),
+            "created_at": _parse_created_at(message.get("timestamp")),
+        },
+    )
+    db.commit()
+
+
 @interview_ws_router.websocket("/{room_id}/{user_id}")
 async def interview_endpoint(
     websocket: WebSocket,
@@ -118,22 +181,16 @@ async def interview_endpoint(
                         await _broadcast_room_status(room_id)
                         continue
 
-                    if room_id not in chat_histories:
-                        chat_histories[room_id] = []
-
-                    chat_histories[room_id].append({
-                        "user_id": int(message.get("speaker_id")),
-                        "message": message.get("text"),
-                        "role": message.get("role"),
-                        "timestamp": message.get("timestamp"),
-                    })
+                    _persist_chat_message(db, room_id, message)
                     await manager.broadcast_to_others(room_id, user_id, message)
 
             except json.JSONDecodeError:
                 logger.error("Invalid JSON received")
 
     except WebSocketDisconnect:
-        manager.disconnect(room_id, user_id)
+        active_connection_removed = manager.disconnect(room_id, user_id, websocket)
+        if not active_connection_removed:
+            return
 
         if room_id in room_roles and user_id in room_roles[room_id]:
             del room_roles[room_id][user_id]
@@ -145,23 +202,3 @@ async def interview_endpoint(
             "user_id": user_id,
         })
         await _broadcast_room_status(room_id)
-
-        if room_id in chat_histories and chat_histories[room_id]:
-            from sqlalchemy import text
-
-            sql_insert = text("""
-                INSERT INTO chat_histories (interview_id, user_id, message, created_at)
-                VALUES (:interview_id, :user_id, :message, :created_at)
-            """)
-            for item in chat_histories[room_id]:
-                db.execute(sql_insert, {
-                    "interview_id": int(room_id),
-                    "user_id": item["user_id"],
-                    "message": _format_chat_history_message(
-                        item["message"],
-                        item.get("role"),
-                    ),
-                    "created_at": datetime.fromisoformat(item["timestamp"]),
-                })
-            db.commit()
-        chat_histories.pop(room_id, None)

@@ -81,7 +81,7 @@ def get_llm(temperature: float = 0.2):
         model=config["model"],
         api_key=config["api_key"],
         temperature=temperature,
-        max_tokens=8192,
+        max_tokens=16384,
     )
 
 

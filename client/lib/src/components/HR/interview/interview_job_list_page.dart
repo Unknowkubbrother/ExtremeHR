@@ -20,6 +20,9 @@ class _InterviewJobListPageState extends State<InterviewJobListPage> {
   List<JobHR> _jobs = [];
   bool _isLoading = true;
 
+  int get _totalInterviewing =>
+      _jobs.fold(0, (sum, job) => sum + job.interviewCount);
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +62,35 @@ class _InterviewJobListPageState extends State<InterviewJobListPage> {
                 style: TextStyle(
                   fontSize: AppFontSizes.body,
                   fontWeight: FontWeight.bold,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.video_camera_front_outlined,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'In Interview: $_totalInterviewing',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: AppFontSizes.small,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -125,6 +157,11 @@ class _InterviewJobListPageState extends State<InterviewJobListPage> {
               _buildTagBox(
                 "${job.approvedCount}/${job.headcount} Approved",
                 AppColors.positiveColor,
+              ),
+              const SizedBox(height: 4),
+              _buildTagBox(
+                "${job.interviewCount}/${job.candidateCount} In Interview",
+                Colors.orange.shade700,
               ),
               const SizedBox(height: 4),
               _buildTagBox(

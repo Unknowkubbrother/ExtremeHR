@@ -12,6 +12,7 @@ from langchain_classic.memory import ConversationBufferMemory
 load_dotenv()
 
 class QuestionCandidate(BaseModel):
+    id: int | None = Field(default=None, description="Database id after saving")
     interview_question: str = Field(..., description="The interview question")
     expected_answer: List[str] = Field(..., description="Array of 3 specific answer points we expect from the user")
     competency: str = Field(..., description="The competency being evaluated")

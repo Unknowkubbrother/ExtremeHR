@@ -2,14 +2,86 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from src.databases.db_connect import get_db
-from src.schemas.interview_schema import ApplyJobResponse, InterviewsResponse, HRCandidateResponse
+from src.schemas.interview_schema import (
+    ApplyJobResponse,
+    InterviewsResponse,
+    HRCandidateResponse,
+    ChatHistoryMessageResponse,
+)
 from src.enums.apply_status_enum import ApplyStatusEnum
 from src.utils.auth_utils import get_current_user_id
 from src.routes.job_route import require_hr_role
 from typing import List
 import traceback
+import re
 
 interview_router = APIRouter()
+_HR_LOCAL_EVAL_PATTERN = re.compile(r"^\[AI\]\[HR_LOCAL_EVAL:(\d+)\]\s*")
+
+
+def _require_interview_participant_access(
+    db: Session,
+    interview_id: int,
+    user_id: int,
+):
+    sql_check = text("""
+        SELECT i.id
+        FROM interviews i
+        JOIN jobs j ON i.job_id = j.id
+        WHERE i.id = :interview_id
+          AND (i.user_id = :user_id OR j.user_id = :user_id)
+    """)
+    interview = db.execute(
+        sql_check,
+        {"interview_id": interview_id, "user_id": user_id},
+    ).first()
+
+    if not interview:
+        raise HTTPException(status_code=403, detail="Not authorized or interview not found")
+
+
+def _format_chat_history_payload(row) -> dict:
+    raw_message = (row.message or "").strip()
+    question_id = None
+    local_eval_match = _HR_LOCAL_EVAL_PATTERN.match(raw_message)
+    if local_eval_match:
+        question_id = int(local_eval_match.group(1))
+        message_text = raw_message[local_eval_match.end():].strip()
+        is_ai = True
+    else:
+        is_ai = raw_message.startswith("[AI]")
+        message_text = raw_message[4:].strip() if is_ai else raw_message
+    user_role = (row.role or "").strip().lower()
+
+    if is_ai:
+        role = "AI"
+        username = "ai"
+        full_name = "AI"
+    elif user_role == "hr":
+        role = "HR"
+        username = row.username or "hr"
+        full_name = row.username or "HR Manager"
+    else:
+        role = "Candidate"
+        username = row.username or "candidate"
+        full_name = row.username or "Candidate"
+
+    created_at = row.created_at
+    time_label = (
+        f"{created_at.hour}:{str(created_at.minute).zfill(2)}"
+        if created_at is not None
+        else "0:00"
+    )
+
+    return {
+        "role": role,
+        "time": time_label,
+        "text": message_text,
+        "user_id": row.user_id,
+        "username": username,
+        "full_name": full_name,
+        "question_id": question_id,
+    }
 
 @interview_router.post("/apply/{job_id}",response_model=ApplyJobResponse, tags=["Interview"])
 def apply_job(job_id: int,db:Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
@@ -90,6 +162,44 @@ def get_job_candidates(job_id: int, db: Session = Depends(get_db), hr_user_id: i
 
     candidates = db.execute(sql_get_candidates, {"job_id": job_id}).mappings().all()
     return candidates
+
+
+@interview_router.get(
+    "/{interview_id}/chat-history",
+    response_model=List[ChatHistoryMessageResponse],
+    tags=["Interview"],
+)
+def get_chat_history(
+    interview_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    _require_interview_participant_access(db, interview_id, user_id)
+    current_user_role_row = db.execute(
+        text("SELECT role FROM users WHERE id = :user_id"),
+        {"user_id": user_id},
+    ).first()
+    current_user_role = (current_user_role_row.role or "").strip().lower() if current_user_role_row else ""
+
+    sql_get_history = text("""
+        SELECT ch.id, ch.user_id, ch.message, ch.created_at, u.username, u.role
+        FROM chat_histories ch
+        JOIN users u ON ch.user_id = u.id
+        WHERE ch.interview_id = :interview_id
+        ORDER BY ch.id ASC
+    """)
+    rows = db.execute(
+        sql_get_history,
+        {"interview_id": interview_id},
+    ).mappings().all()
+
+    if current_user_role != "hr":
+        rows = [
+            row for row in rows
+            if not _HR_LOCAL_EVAL_PATTERN.match((row.message or "").strip())
+        ]
+
+    return [_format_chat_history_payload(row) for row in rows]
 
 @interview_router.post("/hr/interview/{interview_id}/reject", response_model=ApplyJobResponse, tags=["Interview"])
 def reject_interview(interview_id: int, db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):

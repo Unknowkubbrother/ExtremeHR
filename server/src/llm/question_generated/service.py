@@ -269,11 +269,12 @@ def save_generated_questions(
             :score,
             :reason
         )
+        RETURNING id
     """)
 
     for q in question_candidates.questions:
 
-        db.execute(
+        inserted_row = db.execute(
             sql_insert,
             {
                 "interview_id": interview_id,
@@ -283,6 +284,8 @@ def save_generated_questions(
                 "score": None,
                 "reason": None,
             },
-        )
+        ).first()
+        q.id = inserted_row.id if inserted_row else None
 
     db.commit()
+    return question_candidates

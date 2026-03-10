@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from src.databases.db_connect import get_db
+from src.databases.db_connect import SessionLocal, get_db
 from src.enums.apply_status_enum import ApplyStatusEnum
 from src.llm.interview_summary.agent import (
     InterviewSummaryModel,
@@ -21,6 +21,7 @@ from src.schemas.interview_schema import ApplyJobResponse
 
 from src.utils.auth_utils import get_current_user_id
 import asyncio
+from datetime import datetime
 
 from src.utils.llm_utils import llm_generate_to_string
 
@@ -100,6 +101,61 @@ def _require_hr_question_access(db: Session, question_id: int, hr_user_id: int):
             status_code=403,
             detail="Not authorized or question not found",
         )
+
+
+def _evaluate_answer_in_thread(question_id: int, user_answer: str):
+    db = SessionLocal()
+    try:
+        return evaluate_llm_answer(
+            db=db,
+            question_id=question_id,
+            user_answer=user_answer,
+        )
+    finally:
+        db.close()
+
+
+def _save_local_hr_evaluation(
+    db: Session,
+    question_id: int,
+    hr_user_id: int,
+    score: float,
+    reason: str,
+):
+    question_row = db.execute(
+        text("""
+            SELECT iq.interview_id
+            FROM interview_questions iq
+            JOIN interviews i ON iq.interview_id = i.id
+            JOIN jobs j ON i.job_id = j.id
+            WHERE iq.id = :question_id AND j.user_id = :hr_user_id
+        """),
+        {"question_id": question_id, "hr_user_id": hr_user_id},
+    ).first()
+
+    if not question_row:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized or question not found",
+        )
+
+    sql_insert = text("""
+        INSERT INTO chat_histories (interview_id, user_id, message, created_at)
+        VALUES (:interview_id, :user_id, :message, :created_at)
+    """)
+    db.execute(
+        sql_insert,
+        {
+            "interview_id": question_row.interview_id,
+            "user_id": hr_user_id,
+            "message": (
+                f"[AI][HR_LOCAL_EVAL:{question_id}] "
+                f"Evaluation Score: {score:.2f}\nReason: {reason}"
+            ),
+            "created_at": datetime.now(),
+        },
+    )
+    db.commit()
 
 @interview_llm_router.get("/context/{interview_id}", tags=["Interview-llm"])
 async def get_interview_context(interview_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
@@ -214,12 +270,12 @@ resume:
 def generate_questions(
     request: GenerateRequest,
     db: Session = Depends(get_db),
-    #hr_user_id: int = Depends(require_hr_role),
+    hr_user_id: int = Depends(require_hr_role),
 ):
     import traceback
 
     try:
-        #_require_hr_interview_access(db, request.interview_id, hr_user_id)
+        _require_hr_interview_access(db, request.interview_id, hr_user_id)
 
         results = generate_interview_questions(
             db=db,
@@ -227,7 +283,7 @@ def generate_questions(
             hr_prompt=request.hr_prompt
         )
 
-        save_generated_questions(db, request.interview_id, results)
+        results = save_generated_questions(db, request.interview_id, results)
         
         return {"message": request.hr_prompt, "questions": results.model_dump()}
     except LLMConfigurationError as e:
@@ -306,20 +362,29 @@ def get_interview_summary(
     "/evaluate-question",
     tags=["Interview-llm"],
 )
-def evaluate_answer(
+async def evaluate_answer(
     request: EvaluateRequest,
     db: Session = Depends(get_db),
     hr_user_id: int = Depends(require_hr_role),
 ):
     try:
         _require_hr_question_access(db, request.question_id, hr_user_id)
-        result = evaluate_llm_answer(
-            db=db,
-            question_id=request.question_id,
-            user_answer=request.user_answer
+        result = await asyncio.to_thread(
+            _evaluate_answer_in_thread,
+            request.question_id,
+            request.user_answer,
+        )
+        _save_local_hr_evaluation(
+            db,
+            request.question_id,
+            hr_user_id,
+            float(result.get("score", 0)),
+            str(result.get("reason", "")),
         )
         return result
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

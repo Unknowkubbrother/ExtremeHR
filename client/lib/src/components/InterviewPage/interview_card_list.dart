@@ -70,38 +70,41 @@ class _InterviewCardListState extends State<InterviewCardList> {
     }
 
     return Expanded(
-      child: ListView.separated(
-        itemCount: interviewCardList.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: InterviewCard(
-              id: interviewCardList[index].id,
-              icon: Icons.work_outline,
-              action: () {
-                debugPrint("Interview Card Clicked");
-              },
-              state: interviewCardList[index].state,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    interviewCardList[index].title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: AppFontSizes.body,
+      child: RefreshIndicator(
+        onRefresh: _fetchInterviews,
+        child: ListView.separated(
+          itemCount: interviewCardList.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 16),
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: InterviewCard(
+                id: interviewCardList[index].id,
+                icon: Icons.work_outline,
+                action: () {
+                  debugPrint("Interview Card Clicked");
+                },
+                state: interviewCardList[index].state,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      interviewCardList[index].title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: AppFontSizes.body,
+                      ),
                     ),
-                  ),
-                  Text(
-                    interviewCardList[index].company,
-                    style: TextStyle(fontSize: AppFontSizes.caption),
-                  ),
-                ],
+                    Text(
+                      interviewCardList[index].company,
+                      style: TextStyle(fontSize: AppFontSizes.caption),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
