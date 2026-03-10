@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../services/signaling_service.dart';
@@ -31,8 +33,10 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
   bool _isMuted = false;
   bool _isVideoOff = false;
   bool _isRemoteConnected = false;
+  bool _hasStartedStt = false;
 
   final List<Map<String, dynamic>> _transcripts = [];
+  Timer? _sttStartTimer;
 
   double? _pipTop = 20;
   double? _pipRight = 20;
@@ -72,6 +76,7 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
           }
           _isRemoteConnected = true;
         });
+        _scheduleSttStart();
       }
     };
 
@@ -81,9 +86,6 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
     await _webrtcService.initLocalStream();
     await _webrtcService.initPeerConnection(widget.roomId, widget.userId);
 
-    // Auto-start STT
-    _sttService.startListening(widget.roomId, widget.userId, widget.role);
-
     // Give some time for peer connection to establish before offering (if HR)
     if (widget.role == 'hr') {
       Future.delayed(const Duration(seconds: 2), () {
@@ -92,6 +94,22 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
         }
       });
     }
+  }
+
+  void _scheduleSttStart() {
+    if (_hasStartedStt) {
+      return;
+    }
+
+    _sttStartTimer?.cancel();
+    _sttStartTimer = Timer(const Duration(milliseconds: 800), () {
+      if (!mounted || _hasStartedStt || !_isRemoteConnected) {
+        return;
+      }
+
+      _hasStartedStt = true;
+      _sttService.startListening(widget.roomId, widget.userId, widget.role);
+    });
   }
 
   void _handleMessage(Map<String, dynamic> message) {
@@ -115,6 +133,9 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
         });
       }
     } else if (message['type'] == 'user_left') {
+      _sttStartTimer?.cancel();
+      _hasStartedStt = false;
+      _sttService.stopListening();
       if (mounted) {
         setState(() {
           _isRemoteConnected = false;
@@ -135,6 +156,7 @@ class _InterviewRoomScreenState extends State<InterviewRoomScreen> {
 
   @override
   void dispose() {
+    _sttStartTimer?.cancel();
     _localRenderer.dispose();
     _remoteRenderer.dispose();
     _webrtcService.dispose();

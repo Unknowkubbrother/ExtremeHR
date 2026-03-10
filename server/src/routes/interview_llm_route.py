@@ -24,6 +24,8 @@ import asyncio
 
 from src.utils.llm_utils import llm_generate_to_string
 
+from src.llm.evl_question.evl_question import evaluate_llm_answer
+
 class GenerateRequest(BaseModel):
     interview_id: int
     hr_prompt: str
@@ -31,6 +33,10 @@ class GenerateRequest(BaseModel):
 
 class GenerateInterviewSummaryRequest(BaseModel):
     interview_id: int
+
+class EvaluateRequest(BaseModel):
+    question_id: int
+    user_answer: str
 
 
 interview_llm_router = APIRouter()
@@ -73,6 +79,26 @@ def _require_interview_status(
         raise HTTPException(
             status_code=409,
             detail=f"Interview must be in '{expected_status.value}' status before generating summary",
+        )
+
+
+def _require_hr_question_access(db: Session, question_id: int, hr_user_id: int):
+    sql_check = text("""
+        SELECT iq.id
+        FROM interview_questions iq
+        JOIN interviews i ON iq.interview_id = i.id
+        JOIN jobs j ON i.job_id = j.id
+        WHERE iq.id = :question_id AND j.user_id = :hr_user_id
+    """)
+    question = db.execute(
+        sql_check,
+        {"question_id": question_id, "hr_user_id": hr_user_id},
+    ).first()
+
+    if not question:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized or question not found",
         )
 
 @interview_llm_router.get("/context/{interview_id}", tags=["Interview-llm"])
@@ -275,3 +301,25 @@ def get_interview_summary(
         raise HTTPException(status_code=404, detail="Interview summary not found")
 
     return summary
+
+@interview_llm_router.post(
+    "/evaluate-question",
+    tags=["Interview-llm"],
+)
+def evaluate_answer(
+    request: EvaluateRequest,
+    db: Session = Depends(get_db),
+    hr_user_id: int = Depends(require_hr_role),
+):
+    try:
+        _require_hr_question_access(db, request.question_id, hr_user_id)
+        result = evaluate_llm_answer(
+            db=db,
+            question_id=request.question_id,
+            user_answer=request.user_answer
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

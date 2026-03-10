@@ -1,4 +1,5 @@
 import 'package:client/src/components/shared/confirm.dart';
+import 'package:client/src/components/SummaryPage/summary_page.dart';
 import 'package:client/src/services/auth_storage.dart';
 import 'package:client/src/models/interview_model.dart';
 import 'package:client/src/services/interview_service.dart';
@@ -35,6 +36,7 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
   bool _isRemoteConnected = false;
   bool _isRoomReady = false;
   bool _isInitialized = false;
+  bool _isEndingInterview = false;
 
   String? _currentUserRole;
   int? _currentUserId;
@@ -297,6 +299,7 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
                     key: _chatKey,
                     isMicOn: _isMicOn,
                     canSpeak: _isRoomReady,
+                    isCallConnected: _isRemoteConnected,
                     signalingService: _signalingService,
                     roomId: widget.id,
                   ),
@@ -349,35 +352,89 @@ class _HRMeetingPageState extends State<HRMeetingPage> {
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                 ),
-                onPressed: () async {
-                  final navigator = Navigator.of(context);
-                  final bool? confirmed = await const ConfirmDialog(
-                    title: "End Interview",
-                    content: "Are you sure you want to end this interview?",
-                    confirmText: "End",
-                    cancelText: "Cancel",
-                    confirmColor: AppColors.dangerousColor,
-                    cancelColor: Colors.black54,
-                  ).show(context);
+                onPressed: _isEndingInterview
+                    ? null
+                    : () async {
+                        final navigator = Navigator.of(context);
+                        final bool? confirmed = await const ConfirmDialog(
+                          title: "End Interview",
+                          content:
+                              "Are you sure you want to end this interview?",
+                          confirmText: "End",
+                          cancelText: "Cancel",
+                          confirmColor: AppColors.dangerousColor,
+                          cancelColor: Colors.black54,
+                        ).show(context);
 
-                  if (confirmed != true) {
-                    return;
-                  }
-                  if (!mounted) {
-                    return;
-                  }
+                        if (confirmed != true) {
+                          return;
+                        }
+                        if (!context.mounted) {
+                          return;
+                        }
 
-                  await _endInterview();
-                  if (!mounted) {
-                    return;
-                  }
+                        setState(() => _isEndingInterview = true);
 
-                  navigator.pop();
-                },
-                icon: const Icon(Icons.stop_circle_outlined),
-                label: const Text(
-                  "End",
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                        try {
+                          await _endInterview();
+                          if (!mounted) {
+                            return;
+                          }
+
+                          _signalingService.sendMessage({
+                            'type': 'interview_ended',
+                            'room_id': widget.id,
+                            'user_id': _currentUserId?.toString(),
+                            'ended_by': 'hr',
+                          });
+
+                          await Future.delayed(
+                            const Duration(milliseconds: 150),
+                          );
+
+                          if (!mounted) {
+                            return;
+                          }
+
+                          navigator.pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => SummaryPage(
+                                interviewId: widget.id,
+                                canGenerate: true,
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) {
+                            return;
+                          }
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                e.toString().replaceFirst('Exception: ', ''),
+                              ),
+                            ),
+                          );
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isEndingInterview = false);
+                          }
+                        }
+                      },
+                icon: _isEndingInterview
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.stop_circle_outlined),
+                label: Text(
+                  _isEndingInterview ? "Ending..." : "End",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),

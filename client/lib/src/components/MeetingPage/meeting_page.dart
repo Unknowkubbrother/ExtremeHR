@@ -33,6 +33,7 @@ class _MeetingPageState extends State<MeetingPage> {
   bool _isRemoteConnected = false;
   bool _isRoomReady = false;
   bool _isInitialized = false;
+  bool _isEndingByHr = false;
 
   String? _currentUserRole;
   int? _currentUserId;
@@ -74,6 +75,22 @@ class _MeetingPageState extends State<MeetingPage> {
         _remoteRenderer.srcObject = null;
       });
       _syncMicrophoneState();
+      return;
+    }
+
+    if (message['type'] == 'interview_ended') {
+      if (_isEndingByHr) {
+        return;
+      }
+
+      _isEndingByHr = true;
+      _signalingService.disconnect();
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop();
       return;
     }
 
@@ -222,6 +239,7 @@ class _MeetingPageState extends State<MeetingPage> {
                     key: _chatKey,
                     isMicOn: _isMicOn,
                     canSpeak: _isRoomReady,
+                    isCallConnected: _isRemoteConnected,
                     signalingService: _signalingService,
                     roomId: widget.id,
                   ),

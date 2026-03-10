@@ -7,6 +7,7 @@ from src.enums.apply_status_enum import ApplyStatusEnum
 from src.utils.auth_utils import get_current_user_id
 from src.routes.job_route import require_hr_role
 from typing import List
+import traceback
 
 interview_router = APIRouter()
 
@@ -107,6 +108,32 @@ def reject_interview(interview_id: int, db: Session = Depends(get_db), hr_user_i
 
     return ApplyJobResponse(isSuccess=True)
 
+@interview_router.post("/hr/interview/{interview_id}/accept", response_model=ApplyJobResponse, tags=["Interview"])
+def accept_interview(interview_id: int, db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):
+    sql_check = text("""
+        SELECT i.id, i.status FROM interviews i
+        JOIN jobs j ON i.job_id = j.id
+        WHERE i.id = :interview_id AND j.user_id = :hr_user_id
+    """)
+    interview = db.execute(
+        sql_check,
+        {"interview_id": interview_id, "hr_user_id": hr_user_id},
+    ).first()
+    if not interview:
+        raise HTTPException(status_code=403, detail="Not authorized or interview not found")
+
+    if interview.status != ApplyStatusEnum.VIEWED.value:
+        raise HTTPException(
+            status_code=409,
+            detail="Interview must be in 'viewed' status before accepting candidate",
+        )
+
+    sql_update = text("UPDATE interviews SET status = :status WHERE id = :interview_id")
+    db.execute(sql_update, {"status": ApplyStatusEnum.ACCEPTED.value, "interview_id": interview_id})
+    db.commit()
+
+    return ApplyJobResponse(isSuccess=True)
+
 @interview_router.post("/hr/interview/{interview_id}/interview", response_model=ApplyJobResponse, tags=["Interview"])
 def interview_candidate(interview_id: int, db: Session = Depends(get_db), hr_user_id: int = Depends(require_hr_role)):
     sql_check = text("""
@@ -138,5 +165,16 @@ def end_interview(interview_id: int, db: Session = Depends(get_db), hr_user_id: 
     sql_update = text("UPDATE interviews SET status = :status WHERE id = :interview_id")
     db.execute(sql_update, {"status": ApplyStatusEnum.VIEWED.value, "interview_id": interview_id})
     db.commit()
+
+    try:
+        from src.llm.interview_summary.service import (
+            generate_interview_summary,
+            save_interview_summary,
+        )
+
+        summary = generate_interview_summary(db=db, interview_id=interview_id)
+        save_interview_summary(db, interview_id, summary)
+    except Exception:
+        traceback.print_exc()
 
     return ApplyJobResponse(isSuccess=True)
