@@ -17,11 +17,11 @@ def create_job(job_data: JobCreate, db: Session = Depends(get_db), hr_user_id: i
     sql_insert = text("""
         INSERT INTO jobs (
             title, description, responsibilities, 
-            qualifications, skills, headcount, "minAge", "maxAge", "minSalary", "maxSalary", user_id
+            qualifications, skills, headcount, "minAge", "maxAge", "minSalary", "maxSalary", user_id,job_field
         ) 
         VALUES (
             :title, :description, :responsibilities, 
-            :qualifications, :skills, :headcount, :minAge, :maxAge, :minSalary, :maxSalary, :user_id
+            :qualifications, :skills, :headcount, :minAge, :maxAge, :minSalary, :maxSalary, :user_id, :job_field
         ) 
         RETURNING id
     """)
