@@ -587,6 +587,10 @@ class ChatMeetingState extends State<ChatMeeting> {
   int? _getLatestEvaluableQuestionId() {
     for (var index = _messages.length - 1; index >= 0; index--) {
       final message = _messages[index];
+      if (message.isEvaluationMessage) {
+        continue;
+      }
+
       if (message.role.toUpperCase() == _aiRole && message.questionId != null) {
         final questionId = message.questionId!;
         return _hasEvaluationForQuestion(questionId, startIndex: index + 1)
@@ -609,6 +613,10 @@ class ChatMeetingState extends State<ChatMeeting> {
   int _getLatestEvaluableQuestionIndex(int questionId) {
     for (var index = _messages.length - 1; index >= 0; index--) {
       final message = _messages[index];
+      if (message.isEvaluationMessage) {
+        continue;
+      }
+
       if (message.role.toUpperCase() == _aiRole &&
           message.questionId == questionId) {
         return index;

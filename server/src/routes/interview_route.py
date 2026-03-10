@@ -186,7 +186,7 @@ def get_chat_history(
         FROM chat_histories ch
         JOIN users u ON ch.user_id = u.id
         WHERE ch.interview_id = :interview_id
-        ORDER BY ch.created_at ASC, ch.id ASC
+        ORDER BY ch.id ASC
     """)
     rows = db.execute(
         sql_get_history,
