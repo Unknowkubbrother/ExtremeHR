@@ -111,9 +111,10 @@ CANDIDATE STRENGTHS:
 CANDIDATE GAPS:
 {row.candidate_gaps or "No gaps identified yet."}
 
-RECENT MESSAGES:
-{get_recent_messages(db, interview_id)}
 """.strip()
+
+# RECENT MESSAGES:
+# {get_recent_messages(db, interview_id)}
 
 def generate_interview_questions(
     db: Session,
@@ -149,40 +150,43 @@ def generate_interview_questions(
     
     # 4) Generate Questions
     current_prompt = f"""
-You are an interview question generator.
+You are an expert interview question generator.
 
-PRIMARY INSTRUCTION (HIGHEST PRIORITY):
-The CURRENT HR REQUEST is the main objective.
-All generated questions MUST directly satisfy the HR REQUEST.
+PRIMARY INSTRUCTION:
+You MUST generate interview questions strictly following this HR PROMPT:
+"{hr_prompt}"
 
-If any context, candidate information, or historical profile conflicts with the HR REQUEST, IGNORE it.
 
-CONTEXT INFORMATION (LOW PRIORITY):
+If any context, candidate information, or historical profile conflicts with the HR PROMPT, the HR PROMPT takes absolute precedence.
+
+CONTEXT INFORMATION:
 {baseline_context}
 
 HR PROFILE (Historical Style – OPTIONAL):
 {hr_profile}
 
-CURRENT HR REQUEST (PRIMARY TASK):
-{hr_prompt}
-
 TASK:
 Generate exactly 2–3 interview questions that directly satisfy the CURRENT HR REQUEST.
 
 REASONING PROCESS:
-1. Understand the HR REQUEST.
+1. Understand the HR PROMPT.
 2. Ignore unrelated context.
-3. Generate questions aligned ONLY with the HR REQUEST.
+3. Generate questions aligned ONLY with the HR PROMPT.
 
 DEFAULT LANGUAGE:
-All questions and explanations MUST be written in Thai unless the HR REQUEST is explicitly English.
+The language of your output MUST MATCH the EXACT language of the HR PROMPT.
+If the HR PROMPT is written in English (e.g., "I want a greeting question"), then ALL generated questions, expected answers, and explanations MUST be in English.
+If the HR PROMPT is written in Thai, then output in Thai.
+Do NOT mix languages.
 
 RULES:
-- Questions must clearly reflect the HR REQUEST.
+- Questions must clearly reflect the HR PROMPT.
+- If the HR PROMPT is a completely new topic or a short request (e.g., "greeting question"), you MUST completely IGNORE any conflicting HR PROFILE. The HR PROMPT is the absolute truth!
+- If you use the provided tools to get candidate information, you MUST use the specific details from the tool's output (e.g., specific project names, technologies used in their portfolio) to formulate your questions! DO NOT ask generic questions if you have their real data.
 - Do not introduce unrelated roles, skills, or industries.
 - Avoid repeating previous questions.
 - expected_answer must contain exactly 3 distinct points.
-- Output language must match the HR REQUEST.
+- Output language must match the HR PROMPT.
 - Use the provided tools by passing the interview_id "{interview_id}" as a string when additional context is required.
 
 OUTPUT FORMAT:
@@ -195,7 +199,7 @@ Return ONLY a valid JSON object.
       "expected_answer": ["Point 1", "Point 2", "Point 3"],
       "competency": "String",
       "difficulty": "easy | medium | hard",
-      "why_this_question": "Explain how it matches the HR REQUEST"
+      "why_this_question": "Explain how it matches the HR PROMPT"
     }}
   ]
 }}
@@ -212,11 +216,17 @@ Return ONLY a valid JSON object.
         if attempt > 0:
             combined_prompt += f"\n\nERROR FROM PREVIOUS ATTEMPT:\n{feedback_msg}\n\nPlease fix the JSON and return the corrected version."
 
+        #print(f"\n========== LLM PROMPT (Attempt {attempt}) ==========\n{combined_prompt}\n======================================================\n")
+
+        from langchain_community.callbacks.manager import get_openai_callback
+        
         try:
-            result = agent.invoke({
-                "input": combined_prompt,
-                "chat_history": []
-            })
+            with get_openai_callback() as cb:
+                result = agent.invoke({
+                    "input": combined_prompt,
+                    "chat_history": []
+                })
+            print(f"\n+++ TOKEN USAGE +++\n{cb}\n+++++++++++++++++++\n")
             json_str = extract_json_text(result["output"])
             parsed_data = json.loads(json_str, strict=False)
 
