@@ -27,7 +27,7 @@ app.include_router(search_route.search_router, prefix="/search")
 app.include_router(interview_route.interview_router, prefix="/interview")
 app.include_router(interview_ws_route.interview_ws_router, prefix="/ws/interview")
 app.include_router(interview_llm_route.interview_llm_router, prefix="/interview-llm")
-# uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+# uvicorn src.main:app --host 0.0.0.0 --port 8005 --reload
 # alembic revision --autogenerate -m "init"
 # alembic upgrade head
 
