@@ -39,6 +39,13 @@ class EvaluateRequest(BaseModel):
     question_id: int
     user_answer: str
 
+class QuestionSummaryResponse(BaseModel):
+    id: int
+    question: str
+    expected_answer: str | None = None
+    user_answer: str | None = None
+    score: float | None = None
+    reason: str | None = None
 
 interview_llm_router = APIRouter()
 
@@ -330,6 +337,8 @@ def generate_questions(
             hr_prompt=request.hr_prompt
         )
 
+        print("RESULTS:", results)
+
         results = save_generated_questions(db, request.interview_id, results)
         
         return {"message": request.hr_prompt, "questions": results.model_dump()}
@@ -435,3 +444,34 @@ async def evaluate_answer(
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@interview_llm_router.get(
+    "/summary/{interview_id}/questions",
+    tags=["Interview-llm"],
+    response_model=list[QuestionSummaryResponse],
+)
+def get_interview_summary_questions(
+    interview_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    _require_interview_summary_access(db, interview_id, user_id)
+    
+    query = text("""
+        SELECT id, question, expected_answer, user_answer, score, reason
+        FROM interview_questions
+        WHERE interview_id = :interview_id
+        ORDER BY id ASC
+    """)
+    rows = db.execute(query, {"interview_id": interview_id}).fetchall()
+    
+    return [
+        QuestionSummaryResponse(
+            id=r.id,
+            question=r.question or "",
+            expected_answer="\n".join(r.expected_answer) if isinstance(r.expected_answer, list) else r.expected_answer,
+            user_answer=r.user_answer,
+            score=r.score,
+            reason=r.reason,
+        ) for r in rows
+    ]

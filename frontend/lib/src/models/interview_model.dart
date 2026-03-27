@@ -164,6 +164,39 @@ class InterviewSummaryPoint {
   }
 }
 
+class InterviewQuestionModel {
+  final int id;
+  final String question;
+  final String? expectedAnswer;
+  final String? userAnswer;
+  final double? score;
+  final String? reason;
+
+  InterviewQuestionModel({
+    required this.id,
+    required this.question,
+    this.expectedAnswer,
+    this.userAnswer,
+    this.score,
+    this.reason,
+  });
+
+  factory InterviewQuestionModel.fromJson(Map<String, dynamic> json) {
+    return InterviewQuestionModel(
+      id: json['id'] is num
+          ? (json['id'] as num).toInt()
+          : int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      question: json['question']?.toString() ?? '',
+      expectedAnswer: json['expected_answer']?.toString(),
+      userAnswer: json['user_answer']?.toString(),
+      score: json['score'] is num
+          ? (json['score'] as num).toDouble()
+          : double.tryParse(json['score']?.toString() ?? ''),
+      reason: json['reason']?.toString(),
+    );
+  }
+}
+
 class InterviewSummaryEvidence {
   final String experience;
   final String communication;

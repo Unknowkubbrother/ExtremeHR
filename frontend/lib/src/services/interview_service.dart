@@ -194,6 +194,36 @@ class InterviewService {
     throw Exception(_extractErrorMessage(responseBody));
   }
 
+  Future<List<InterviewQuestionModel>> getInterviewQuestions(
+    String token,
+    String interviewId,
+  ) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = await http.get(
+      Uri.parse('$apiUrl/interview-llm/summary/$interviewId/questions'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    dynamic responseBody;
+    try {
+      responseBody = jsonDecode(response.body);
+    } catch (_) {
+      responseBody = response.body;
+    }
+
+    if (response.statusCode == 200 && responseBody is List) {
+      return responseBody
+          .whereType<Map>()
+          .map((item) => InterviewQuestionModel.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+
+    throw Exception(_extractErrorMessage(responseBody));
+  }
+
   Future<GeneratedInterviewQuestionResponse> generateInterviewQuestions(
     String token,
     String interviewId,
