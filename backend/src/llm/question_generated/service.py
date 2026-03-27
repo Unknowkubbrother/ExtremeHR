@@ -1,15 +1,11 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from src.llm.question_generated.agent import build_agent, extract_json_text, QuestionCandidates, get_llm
-from src.llm.question_generated.tools import build_tools
+from src.llm.question_generated.agent import QuestionCandidates, get_llm
+from src.llm.question_generated.tools import get_full_interview_context
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_community.callbacks.manager import get_openai_callback
 import json
-
-def get_recent_questions_text(history: list) -> str:
-    if not history:
-        return "No previous questions in this session."
-    return "\n".join([msg["content"] for msg in history if msg["role"] == "assistant"])
 
 def get_recent_messages(db: Session, interview_id: int, limit: int = 5) -> str:
     query = text("""
@@ -84,7 +80,14 @@ RULES:
 
     return summary
 
-def build_baseline_context(db: Session, interview_id: int) -> str:
+def map_difficulty(score: float) -> str:
+    if score < 0.3:
+        return "easy"
+    elif score < 0.7:
+        return "medium"
+    return "hard"
+
+def build_baseline_context(db: Session, interview_id: int) -> dict:
     query = text("""
         SELECT i.context, i.candidate_profile_summary, i.job_profile_summary,
                i.candidate_strengths, i.candidate_gaps, i.hr_interest, i.difficulty
@@ -93,28 +96,18 @@ def build_baseline_context(db: Session, interview_id: int) -> str:
     """)
     row = db.execute(query, {"id": interview_id}).first()
     if not row:
-        return "Interview not found."
+        return {}
 
-    return f"""
-ROOM CONTEXT:
-{row.context or "No room context."}
+    diff_score = float(row.difficulty) if row.difficulty is not None else 0.5
 
-INTERVIEW DIFFICULTY (0.0=Entry, 0.5=Mid, 1.0=Expert):
-{row.difficulty if row.difficulty is not None else 0.5}
-
-HR INTERESTING (Use as weight for questions):
-{row.hr_interest or "No specific HR interests noted."}
-
-CANDIDATE STRENGTHS:
-{row.candidate_strengths or "No strengths identified yet."}
-
-CANDIDATE GAPS:
-{row.candidate_gaps or "No gaps identified yet."}
-
-RECENT MESSAGES (May be use for generate continue questions):
-{get_recent_messages(db, interview_id)}
-
-""".strip()
+    return {
+        "context": row.context or "No room context.",
+        "difficulty_score": diff_score,
+        "difficulty_label": map_difficulty(diff_score),
+        "hr_interest": row.hr_interest or "No specific HR interests noted.",
+        "strengths": row.candidate_strengths or "No strengths identified yet.",
+        "gaps": row.candidate_gaps or "No gaps identified yet.",
+    }
 
 def generate_interview_questions(
     db: Session,
@@ -125,126 +118,84 @@ def generate_interview_questions(
     if not db.execute(query, {"id": interview_id}).first():
         raise ValueError("Interview not found")
 
-    # 1) Build baseline context
-    baseline_context = build_baseline_context(db, interview_id)
+    # 1) Build baseline memory context
+    baseline = build_baseline_context(db, interview_id)
+    recent_messages = get_recent_messages(db, interview_id)
     
     # 2) Update HR interest profile (Memory)
     hr_profile = summarize_hr_style(db, interview_id, hr_prompt)
-
     print("HR PROFILE:", hr_profile)
     
-    # 3) Fetch previous questions specifically to prevent repetition in Agent Memory
+    # 3) Setup Deterministic Context (TOOL FETCH) BEFORE LLM calls
+    deterministic_context = get_full_interview_context(db, interview_id)
+    
+    # 4) Fetch previous questions specifically to prevent repetition
     prev_q_query = text("""
         SELECT question FROM interview_questions 
         WHERE interview_id = :id 
-        ORDER BY id DESC LIMIT 3
+        ORDER BY id DESC LIMIT 5
     """)
     prev_q_rows = db.execute(prev_q_query, {"id": interview_id}).fetchall()
-    
-    formatted_history = []
-    # We add them as 'assistant' messages because these were the LLM's previous outputs
-    for r in reversed(prev_q_rows):
-        formatted_history.append({"role": "assistant", "content": f"Previously generated question: {r.question}"})
+    prev_questions_str = "\n".join([f"- {r.question}" for r in prev_q_rows]) if prev_q_rows else "No previous questions."
 
-    tools = build_tools(db)
+    # 5) Setup the LLM with Robust JSON Parsing
+    from langchain_core.output_parsers import JsonOutputParser
+    parser = JsonOutputParser(pydantic_object=QuestionCandidates)
     
-    # 4) Generate Questions
+    llm = get_llm(temperature=0.2)
+    # Note: Explicitly avoid with_structured_output if the backend is unstable
+    # Using JsonOutputParser is generally more robust for varied LLM providers
+    
+    # 6) Generate Questions directly
     current_prompt = f"""
-You are an expert interview question generator.
+You are an expert technical and HR interview question generator.
 
-PRIMARY INSTRUCTION:
-You MUST generate interview questions strictly following this HR PROMPT:
+### PRIMARY INSTRUCTION
+You MUST generate EXACTLY 2-3 interview questions strictly following this HR PROMPT:
 "{hr_prompt}"
-
 
 If any context, candidate information, or historical profile conflicts with the HR PROMPT, the HR PROMPT takes absolute precedence.
 
-CONTEXT INFORMATION:
-{baseline_context}
+### CONTEXT DATA (DO NOT HALLUCINATE, USE THIS REAL DATA)
+{deterministic_context}
 
-HR PROFILE (Historical Style – OPTIONAL):
+### INTERVIEW STATUS
+Room Context: {baseline.get('context')}
+Interview Difficulty Requirement: {baseline.get('difficulty_score')} ({baseline.get('difficulty_label')})
+Target Difficulty: {baseline.get('difficulty_label')}.
+
+### HR PROFILE (Historical Style)
 {hr_profile}
 
-TASK:
-Generate exactly 2–3 interview questions that directly satisfy the CURRENT HR REQUEST.
+### PREVIOUSLY ASKED QUESTIONS (DO NOT REPEAT)
+{prev_questions_str}
 
-REASONING PROCESS:
-1. Understand the HR PROMPT.
-2. Ignore unrelated context.
-3. Generate questions aligned ONLY with the HR PROMPT.
+### RECENT MESSAGES
+{recent_messages}
 
-DEFAULT LANGUAGE:
-The language of your output MUST MATCH the EXACT language of the HR PROMPT.
-If the HR PROMPT is written in English (e.g., "I want a greeting question"), then ALL generated questions, expected answers, and explanations MUST be in English.
-If the HR PROMPT is written in Thai, then output in Thai.
-Do NOT mix languages.
+### OUTPUT FORMAT INSTRUCTIONS
+{parser.get_format_instructions()}
 
-RULES:
-- Questions must clearly reflect the HR PROMPT.
-- If the HR PROMPT is a completely new topic or a short request (e.g., "greeting question"), you MUST completely IGNORE any conflicting HR PROFILE. The HR PROMPT is the absolute truth!
-- If you use the provided tools to get candidate information, you MUST use the specific details from the tool's output (e.g., specific project names, technologies used in their portfolio) to formulate your questions! DO NOT ask generic questions if you have their real data.
-- Do not introduce unrelated roles, skills, or industries.
-- Avoid repeating previous questions.
-- expected_answer must contain exactly 3 distinct points.
-- Output language must match the HR PROMPT.
-- Use the provided tools by passing the interview_id "{interview_id}" as a string when additional context is required.
-
-OUTPUT FORMAT:
-Return ONLY a valid JSON object.
-
-{{
-  "questions": [
-    {{
-      "interview_question": "String",
-      "expected_answer": ["Point 1", "Point 2", "Point 3"],
-      "competency": "String",
-      "difficulty": "easy | medium | hard",
-      "why_this_question": "Explain how it matches the HR PROMPT"
-    }}
-  ]
-}}
+### RULES
+- Output must be valid JSON following the schema above.
+- The language of your output MUST MATCH the EXACT language of the HR PROMPT.
+- difficulty MUST match '{baseline.get('difficulty_label')}'.
 """
 
-    # 4) Generate Questions (with Retry Logic)
-    agent = build_agent(tools)
-    max_retries = 2
-    attempt = 0
-    feedback_msg = ""
-    
-    while attempt <= max_retries:
-        combined_prompt = current_prompt
-        if attempt > 0:
-            combined_prompt += f"\n\nERROR FROM PREVIOUS ATTEMPT:\n{feedback_msg}\n\nPlease fix the JSON and return the corrected version."
-
-        #print(f"\n========== LLM PROMPT (Attempt {attempt}) ==========\n{combined_prompt}\n======================================================\n")
-
-        from langchain_community.callbacks.manager import get_openai_callback
+    print(f"\n========== LLM PROMPT ==========\n{current_prompt}\n======================================================\n")
+    try:
+        chain = llm | parser
+        with get_openai_callback() as cb:
+            result_dict = chain.invoke(current_prompt)
+        print(f"\n+++ TOKEN USAGE +++\n{cb}\n+++++++++++++++++++\n")
         
-        try:
-            with get_openai_callback() as cb:
-                result = agent.invoke({
-                    "input": combined_prompt,
-                    "chat_history": []
-                })
-            print(f"\n+++ TOKEN USAGE +++\n{cb}\n+++++++++++++++++++\n")
-            json_str = extract_json_text(result["output"])
-            parsed_data = json.loads(json_str, strict=False)
-
-            if isinstance(parsed_data, list):
-                parsed_data = {"questions": parsed_data}
-
-            # This will raise ValidationError if JSON is incomplete
-            return QuestionCandidates.model_validate(parsed_data)
-            
-        except Exception as e:
-            attempt += 1
-            feedback_msg = f"Error parsing JSON: {str(e)}\nRaw Output: {result if 'result' in locals() else 'No result'}"
-            print(f"--- Attempt {attempt} failed ---")
-            print(feedback_msg)
-            if attempt > max_retries:
-                print("--- FINAL FAILURE ---")
-                raise e
-
+        # result_dict is already a dict, convert to Pydantic if needed
+        return QuestionCandidates(**result_dict)
+    except Exception as e:
+        print(f"--- FAILURE generating questions via structured output ---")
+        print(f"EXCEPTION TYPE: {type(e).__name__}")
+        print(f"EXCEPTION DETAIL: {str(e)}")
+        raise e
 
 def save_generated_questions(
     db: Session,
@@ -273,13 +224,12 @@ def save_generated_questions(
     """)
 
     for q in question_candidates.questions:
-
         inserted_row = db.execute(
             sql_insert,
             {
                 "interview_id": interview_id,
                 "question": q.interview_question,
-                "expected_answer": q.expected_answer,   # ต้องเป็น list ถ้า column เป็น ARRAY(String)
+                "expected_answer": q.expected_answer,
                 "user_answer": None,
                 "score": None,
                 "reason": None,

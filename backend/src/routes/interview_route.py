@@ -134,10 +134,10 @@ def get_all(db: Session = Depends(get_db), user_id: int = Depends(get_current_us
     sql_get_all = text("""
     SELECT i.id, i.status, i.created_at, 
            j.title as jobtitle, i.job_id,
-           c.name as companyname 
+           COALESCE(c.name, '-') as companyname 
     FROM interviews i
     JOIN jobs j ON i.job_id = j.id
-    JOIN companies c ON j.user_id = c.user_id
+    LEFT JOIN companies c ON j.user_id = c.user_id
     WHERE i.user_id = :user_id AND j.is_active = true AND i.is_active = true
     """)
 

@@ -80,9 +80,12 @@ class ConnectionManager:
                 except Exception as e:
                     logger.error(f"Error sending room message to {uid}: {e}")
 
+from src.services.asr_service import asr_service
+
 manager = ConnectionManager()
 room_roles: dict[str, dict[str, str]] = {}
-
+# room_id -> user_id -> bytearray
+audio_buffers: dict[str, dict[str, bytearray]] = {}
 
 def _format_chat_history_message(message_text: str, role: str | None) -> str:
     text = (message_text or "").strip()
@@ -158,39 +161,74 @@ async def interview_endpoint(
     db: Session = Depends(get_db),
 ):
     await manager.connect(websocket, room_id, user_id)
+    if room_id not in audio_buffers:
+        audio_buffers[room_id] = {}
+    audio_buffers[room_id][user_id] = bytearray()
+    
     try:
         while True:
-            data = await websocket.receive_text()
+            # Receive both text and binary data
+            result = await websocket.receive()
+            
+            if "text" in result:
+                data = result["text"]
+                try:
+                    message = json.loads(data)
+                    msg_type = message.get("type")
 
-            try:
-                message = json.loads(data)
-                msg_type = message.get("type")
+                    if msg_type in ["webrtc_sdp", "webrtc_ice", "join", "interview_ended"]:
+                        if msg_type == "join":
+                            normalized_role = _normalize_room_role(message.get("role"))
+                            if room_id not in room_roles:
+                                room_roles[room_id] = {}
+                            if normalized_role:
+                                room_roles[room_id][user_id] = normalized_role
+                            await _broadcast_room_status(room_id)
+                        await manager.broadcast_to_others(room_id, user_id, message)
 
-                if msg_type in ["webrtc_sdp", "webrtc_ice", "join", "interview_ended"]:
-                    if msg_type == "join":
-                        normalized_role = _normalize_room_role(message.get("role"))
-                        if room_id not in room_roles:
-                            room_roles[room_id] = {}
-                        if normalized_role:
-                            room_roles[room_id][user_id] = normalized_role
-                        await _broadcast_room_status(room_id)
-                    await manager.broadcast_to_others(room_id, user_id, message)
+                    elif msg_type == "transcript":
+                        # Client-side STT backup (if any)
+                        if not _room_is_ready(room_id):
+                            await _broadcast_room_status(room_id)
+                            continue
 
-                elif msg_type == "transcript":
-                    if not _room_is_ready(room_id):
-                        await _broadcast_room_status(room_id)
-                        continue
+                        _persist_chat_message(db, room_id, message)
+                        await manager.broadcast_to_others(room_id, user_id, message)
 
-                    _persist_chat_message(db, room_id, message)
-                    await manager.broadcast_to_others(room_id, user_id, message)
-
-            except json.JSONDecodeError:
-                logger.error("Invalid JSON received")
+                except json.JSONDecodeError:
+                    logger.error("Invalid JSON received")
+            
+            elif "bytes" in result:
+                audio_chunk = result["bytes"]
+                audio_buffers[room_id][user_id].extend(audio_chunk)
+                
+                # If buffer is large enough (e.g. > 150KB, roughly 2-3 sec of PCM)
+                if len(audio_buffers[room_id][user_id]) > 100000:
+                    buffer_to_process = bytes(audio_buffers[room_id][user_id])
+                    # Clear buffer for next accumulation
+                    audio_buffers[room_id][user_id] = bytearray()
+                    
+                    text_result = asr_service.transcribe(buffer_to_process)
+                    if text_result:
+                        role = room_roles.get(room_id, {}).get(user_id, "candidate")
+                        msg = {
+                            "type": "transcript",
+                            "room_id": room_id,
+                            "speaker_id": user_id,
+                            "role": role,
+                            "text": text_result,
+                            "is_final": True,
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
+                        _persist_chat_message(db, room_id, msg)
+                        await manager.broadcast_to_room(room_id, msg)
 
     except WebSocketDisconnect:
-        active_connection_removed = manager.disconnect(room_id, user_id, websocket)
-        if not active_connection_removed:
-            return
+        manager.disconnect(room_id, user_id, websocket)
+        if room_id in audio_buffers and user_id in audio_buffers[room_id]:
+            del audio_buffers[room_id][user_id]
+            if not audio_buffers[room_id]:
+                del audio_buffers[room_id]
 
         if room_id in room_roles and user_id in room_roles[room_id]:
             del room_roles[room_id][user_id]
@@ -202,3 +240,5 @@ async def interview_endpoint(
             "user_id": user_id,
         })
         await _broadcast_room_status(room_id)
+    except Exception as e:
+        logger.error(f"WebSocket error in room {room_id} for user {user_id}: {e}")
