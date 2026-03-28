@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import auth_route, job_route, resume_route, company_route, job_hr_route, search_route, interview_route, interview_ws_route, interview_llm_route
+from .routes import auth_route, job_route, resume_route, company_route, job_hr_route, search_route, interview_route, interview_ws_route, interview_llm_route, candidate_search_route
 
 app = FastAPI()
 
@@ -27,6 +27,7 @@ app.include_router(search_route.search_router, prefix="/search")
 app.include_router(interview_route.interview_router, prefix="/interview")
 app.include_router(interview_ws_route.interview_ws_router, prefix="/ws/interview")
 app.include_router(interview_llm_route.interview_llm_router, prefix="/interview-llm")
+app.include_router(candidate_search_route.candidate_search_router, prefix="/candidate-search")
 # uvicorn src.main:app --host 0.0.0.0 --port 8005 --reload
 # alembic revision --autogenerate -m "init"
 # alembic upgrade head

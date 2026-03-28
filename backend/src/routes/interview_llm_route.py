@@ -39,6 +39,11 @@ class EvaluateRequest(BaseModel):
     question_id: int
     user_answer: str
 
+class CandidateCompareResponse(BaseModel):
+    interview_id: int
+    candidate_name: str
+    summary: InterviewSummaryModel
+
 class QuestionSummaryResponse(BaseModel):
     id: int
     question: str
@@ -413,6 +418,48 @@ def get_interview_summary(
         raise HTTPException(status_code=404, detail="Interview summary not found")
 
     return summary
+
+@interview_llm_router.get(
+    "/job/{job_id}/compare",
+    tags=["Interview-llm"],
+    response_model=list[CandidateCompareResponse],
+)
+def get_job_comparison(
+    job_id: int,
+    db: Session = Depends(get_db),
+    hr_user_id: int = Depends(require_hr_role),
+):
+    # 1. Verify HR own this job
+    sql_check_job = text("SELECT id FROM jobs WHERE id = :job_id AND user_id = :hr_user_id")
+    job = db.execute(sql_check_job, {"job_id": job_id, "hr_user_id": hr_user_id}).first()
+    if not job:
+        raise HTTPException(status_code=403, detail="Not authorized or job not found")
+
+    # 2. Find all 'viewed' interviews for this job
+    sql_get_interviews = text("""
+        SELECT i.id, u.username as candidate_name
+        FROM interviews i
+        JOIN users u ON i.user_id = u.id
+        WHERE i.job_id = :job_id AND i.status = :status AND i.is_active = true
+    """)
+    rows = db.execute(
+        sql_get_interviews,
+        {"job_id": job_id, "status": ApplyStatusEnum.VIEWED.value},
+    ).mappings().all()
+
+    results = []
+    for row in rows:
+        summary = get_saved_interview_summary(db, row.id)
+        if summary:
+            results.append(
+                CandidateCompareResponse(
+                    interview_id=row.id,
+                    candidate_name=row.candidate_name,
+                    summary=summary,
+                )
+            )
+            
+    return results
 
 @interview_llm_router.post(
     "/evaluate-question",

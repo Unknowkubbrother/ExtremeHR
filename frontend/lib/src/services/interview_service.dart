@@ -4,17 +4,54 @@ import 'package:client/src/models/interview_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:client/src/models/hr_candidate_model.dart';
+import 'package:client/src/models/candidate_compare_model.dart';
+import 'package:client/src/models/candidate_search_model.dart';
+import 'package:client/src/services/api_helper.dart';
 
 class InterviewService {
+  Future<List<CandidateCompareModel>> getJobComparisonData(
+    String token,
+    String jobId,
+  ) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = ApiHelper.handleResponse(await http.get(
+      Uri.parse('$apiUrl/interview-llm/job/$jobId/compare'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    ));
+
+    dynamic responseBody;
+    try {
+      responseBody = jsonDecode(response.body);
+    } catch (_) {
+      responseBody = response.body;
+    }
+
+    if (response.statusCode == 200 && responseBody is List) {
+      return responseBody
+          .whereType<Map>()
+          .map(
+            (item) => CandidateCompareModel.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList();
+    }
+
+    throw Exception(_extractErrorMessage(responseBody));
+  }
+
   Future<List<InverViewCardModel>> getInterviews(String token) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
-    final response = await http.get(
+    final response = ApiHelper.handleResponse(await http.get(
       Uri.parse('$apiUrl/interview/interviews'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-    );
+    ));
     if (response.statusCode == 200) {
       final List<dynamic> jsonList = jsonDecode(response.body);
       return jsonList.map((json) => InverViewCardModel.fromJson(json)).toList();
@@ -315,13 +352,13 @@ class InterviewService {
     String interviewId,
   ) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
-    final response = await http.get(
+    final response = ApiHelper.handleResponse(await http.get(
       Uri.parse('$apiUrl/interview-llm/summary/$interviewId'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-    );
+    ));
 
     dynamic responseBody;
     try {
@@ -368,5 +405,50 @@ class InterviewService {
     }
 
     throw Exception(_extractErrorMessage(responseBody));
+  }
+
+  Future<Map<String, dynamic>> initCandidateEmbeddings(
+    String token,
+    String jobId,
+  ) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = ApiHelper.handleResponse(await http.post(
+      Uri.parse('$apiUrl/candidate-search/init-embedding'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'job_id': int.tryParse(jobId)}),
+    ));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to initialize embeddings');
+    }
+  }
+
+  Future<List<CandidateSearchResultModel>> searchCandidates(
+    String token,
+    String jobId,
+    String query,
+  ) async {
+    final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
+    final response = ApiHelper.handleResponse(await http.post(
+      Uri.parse('$apiUrl/candidate-search/search'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'job_id': int.tryParse(jobId), 'query': query}),
+    ));
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(response.body);
+      final List<dynamic> results = data['results'] ?? [];
+      return results.map((json) => CandidateSearchResultModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to search candidates');
+    }
   }
 }

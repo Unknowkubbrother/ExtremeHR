@@ -39,3 +39,4 @@ class Job(Base):
 
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     user = relationship("User", back_populates="jobs")
+    interviews = relationship("Interview", back_populates="job")
