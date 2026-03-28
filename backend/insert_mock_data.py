@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 def insert_mock_data():
     db = SessionLocal()
-    interview_id = 6
+    interview_id = 10
     
     interview = db.execute(text("SELECT user_id, job_id FROM interviews WHERE id = :id"), {"id": interview_id}).first()
     if not interview:
@@ -26,18 +26,18 @@ def insert_mock_data():
     db.execute(text("""
         INSERT INTO interview_questions (interview_id, question, expected_answer, user_answer, score, reason)
         VALUES 
-        (:id, :q1, :ea1, :ua1, 0.85, :r1),
-        (:id, :q2, :ea2, :ua2, 0.70, :r2)
+        (:id, :q1, :ea1, :ua1, 0.70, :r1),
+        (:id, :q2, :ea2, :ua2, 0.65, :r2)
     """), {
         "id": interview_id,
-        "q1": "Can you explain your experience with Next.js and FastAPI?",
-        "ea1": ["Candidate should explain building full stack apps with Next.js and FastAPI."],
-        "ua1": "I have built a web-based AI system using Next.js for the frontend and FastAPI for backend services.",
-        "r1": "ผู้สมัครมีประสบการณ์ตรงในการใช้ Next.js และ FastAPI ตอบได้ตรงประเด็น",
-        "q2": "How do you handle imbalanced datasets in machine learning?",
-        "ea2": ["Candidate should mention techniques like oversampling, undersampling, or adjusting class weights."],
-        "ua2": "In my AKI Prediction project, I handled imbalanced data by evaluating F1-score and adjusting the dataset distribution.",
-        "r2": "ผู้สมัครอธิบายวิธีจัดการข้อมูลได้ดี แต่ยังขาดรายละเอียดเชิงลึกเกี่ยวกับเทคนิคการจัดการ"
+        "q1": "คุณเรียนจบคณะบริหารธุรกิจมา แต่ทำไมถึงสนใจมาสมัครตำแหน่ง Developer และเริ่มเรียนรู้การเขียนโปรแกรมด้วยตัวเองอย่างไร?",
+        "ea1": ["Candidate should show willingness to learn new technologies and explain their motivation for switching careers or exploring dev roles."],
+        "ua1": "ผมเห็นว่าเทคโนโลยีเข้ามามีบทบาทในทุกธุรกิจครับ ผมเลยเริ่มสนใจและศึกษาการใช้ AI มาช่วยในการทำงานพื้นฐาน และอยากจะพัฒนาทักษะในการสร้างเครื่องมือด้วยตัวเองครับ ผมเป็นคนที่ไม่กลัวปัญหาและมองว่ามันคือความท้าทายในการเรียนรู้สิ่งใหม่ๆ ครับ",
+        "r1": "มีทัศนคติที่ดีและมีความมุ่งมั่น แม้จะไม่มีพื้นฐานทางเทคนิคโดยตรง แต่แสดงให้เห็นถึงความพร้อมในการเรียนรู้",
+        "q2": "คุณเคยผ่านการอบรมเรื่องการใช้ AI มาก่อน คุณคิดว่า AI จะเข้ามาช่วยในการทำงาน Developer ของคุณได้อย่างไรบ้าง?",
+        "ea2": ["Candidate should mention using AI for coding assistance, debugging, or productivity improvement."],
+        "ua2": "ผมน่าจะใช้ AI มาช่วยในการร่างโครงสร้าง Code หรือช่วยตรวจสอบข้อผิดพลาดเบื้องต้นได้ครับ รวมถึงการใช้ AI มาสรุปข้อมูลต่างๆ เพื่อให้ทำงานได้รวดเร็วและละเอียดรอบคอบมากขึ้น เหมือนที่ผมฝึกฝนมาครับ",
+        "r2": "เข้าใจการนำเครื่องมือ (AI) มาใช้ประโยชน์เบื้องต้น แต่ยังขาดทักษะทางเทคนิคที่เจาะลึก"
     })
     db.commit()
 
@@ -53,25 +53,29 @@ def insert_mock_data():
         })
         time_counter += timedelta(minutes=1)
 
-    add_chat(hr_id, "Welcome to the interview for the Senior Full Stack Developer role.")
-    add_chat(candidate_id, "Thank you, I'm excited to be here.")
-    add_chat(hr_id, "[AI] Can you explain your experience with Next.js and FastAPI?")
-    add_chat(candidate_id, "I have built a web-based AI system using Next.js for the frontend and FastAPI for backend services.")
-    add_chat(hr_id, "[AI][HR_LOCAL_EVAL:101] Evaluation Score: 0.85\nReason: ผู้สมัครมีประสบการณ์ตรงในการใช้ Next.js และ FastAPI ตอบได้ตรงประเด็น")
+    add_chat(hr_id, "ยินดีตอนรับเข้าสู่การสัมภาษณ์ตำแหน่ง Developer ครับ แนะนำตัวสั้นๆ หน่อยครับ")
+    add_chat(candidate_id, "สวัสดีครับ ผมชื่อ ชวิศ มีสมโภชน์ หรือชื่อเล่นว่า นินจา ครับ กำลังเรียนอยู่ปี 3 คณะบริหารธุรกิจ มหาวิทยาลัยศรีปทุมครับ ผมเป็นคนที่พร้อมจะพัฒนาและเรียนรู้อะไรใหม่ๆ อยู่เสมอ ไม่กลัวปัญหา และมองว่ามันเป็นความท้าทายครับ")
     
-    add_chat(hr_id, "[AI] How do you handle imbalanced datasets in machine learning?")
-    add_chat(candidate_id, "In my AKI Prediction project, I handled imbalanced data by evaluating F1-score and adjusting the dataset distribution.")
-    add_chat(hr_id, "[AI][HR_LOCAL_EVAL:102] Evaluation Score: 0.70\nReason: ผู้สมัครอธิบายวิธีจัดการข้อมูลได้ดี แต่ยังขาดรายละเอียดเชิงลึกเกี่ยวกับเทคนิคการจัดการ")
+    add_chat(hr_id, "[AI] คุณเรียนจบคณะบริหารธุรกิจมา แต่ทำไมถึงสนใจมาสมัครตำแหน่ง Developer และเริ่มเรียนรู้การเขียนโปรแกรมด้วยตัวเองอย่างไร?")
+    add_chat(candidate_id, "ผมเห็นว่าเทคโนโลยีเข้ามามีบทบาทในทุกธุรกิจครับ ผมเลยเริ่มสนใจและศึกษาการใช้ AI มาช่วยในการทำงานพื้นฐาน และอยากจะพัฒนาทักษะในการสร้างเครื่องมือด้วยตัวเองครับ ผมเป็นคนที่ไม่กลัวปัญหาและมองว่ามันคือความท้าทายในการเรียนรู้สิ่งใหม่ๆ ครับ")
+    add_chat(hr_id, "[AI][HR_LOCAL_EVAL:201] Evaluation Score: 0.70\nReason: มีทัศนคติที่ดีและมีความมุ่งมั่น แม้จะไม่มีพื้นฐานทางเทคนิคโดยตรง แต่แสดงให้เห็นถึงความพร้อมในการเรียนรู้")
+    
+    add_chat(hr_id, "[AI] คุณเคยผ่านการอบรมเรื่องการใช้ AI มาก่อน คุณคิดว่า AI จะเข้ามาช่วยในการทำงาน Developer ของคุณได้อย่างไรบ้าง?")
+    add_chat(candidate_id, "ผมน่าจะใช้ AI มาช่วยในการร่างโครงสร้าง Code หรือช่วยตรวจสอบข้อผิดพลาดเบื้องต้นได้ครับ รวมถึงการใช้ AI มาสรุปข้อมูลต่างๆ เพื่อให้ทำงานได้รวดเร็วและละเอียดรอบคอบมากขึ้น เหมือนที่ผมฝึกฝนมาครับ")
+    add_chat(hr_id, "[AI][HR_LOCAL_EVAL:202] Evaluation Score: 0.65\nReason: เข้าใจการนำเครื่องมือ (AI) มาใช้ประโยชน์เบื้องต้น แต่ยังขาดทักษะทางเทคนิคที่เจาะลึก")
     
     # Extracted HR questions
-    add_chat(hr_id, "I see you worked on a project called Hirenz. What role did graph databases like Neo4j play in this system?")
-    add_chat(candidate_id, "We used Neo4j to build a relationship graph between candidate skills and job requirements. This helped us find high-fit candidates efficiently compared to a standard SQL approach.")
+    add_chat(hr_id, "เล่าประสบการณ์ตอนจัดบูธขายของในงานเทศกาลให้ฟังหน่อยครับ เช่น งานสะพานข้ามแม่น้ำแคว งานพวกนี้ให้อะไรกับคุณบ้าง?")
+    add_chat(candidate_id, "ผมได้ฝึกการทำงานร่วมกับผู้อื่นและการปรับตัวให้เข้ากับสถานการณ์ต่างๆ ครับ เพราะในงานเทศกาลมีปัญหาเฉพาะหน้าเยอะมาก แต่ผมก็นิ่งและแก้ปัญหาไปได้ครับ ทำให้ผมมีความละเอียดรอบคอบในการทำงานมากขึ้นด้วยครับ")
     
-    add_chat(hr_id, "That's interesting. You also have Flutter and Dart skills. Have you ever built a production application with them, or was it just for the internship demo?")
-    add_chat(candidate_id, "It was primarily for the visitor management system demo during my internship. We built the core logic and UI, but it wasn't deployed to a large production user base.")
+    add_chat(hr_id, "คุณรุ้สึกว่าทักษะการตลาดหรือการใช้ Canva จะมาช่วยอะไรในทีม Dev ได้บ้างครับ?")
+    add_chat(candidate_id, "ผมสามารถช่วยทีมในการจัดเตรียมเอกสารข้อมูล หรือการออกแบบ UI เบื้องต้นใน Canva เพื่อสื่อสารไอเดียให้เพื่อนในทีมเข้าใจได้ง่ายขึ้นครับ รวมถึงการมองในมุมมองของผู้ใช้งานเพื่อให้โปรแกรมที่เราพัฒนาตอบโจทย์ผู้ใช้มากที่สุดครับ")
     
     db.commit()
-    print("Mock data successfully inserted!")
+    print("Mock data for Interview ID 10 (Chawis Meesomphot - Ninja) successfully inserted!")
+
+if __name__ == "__main__":
+    insert_mock_data()
 
 if __name__ == "__main__":
     insert_mock_data()

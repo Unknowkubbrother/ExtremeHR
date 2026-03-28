@@ -40,7 +40,10 @@ class _CompareCandidatesPageState extends State<CompareCandidatesPage> {
     try {
       final token = await _authService.getToken();
       if (token != null) {
-        final data = await _interviewService.getJobComparisonData(token, widget.jobId);
+        final data = await _interviewService.getJobComparisonData(
+          token,
+          widget.jobId,
+        );
         setState(() {
           _candidates = data;
         });
@@ -62,10 +65,17 @@ class _CompareCandidatesPageState extends State<CompareCandidatesPage> {
     // Sort logic
     final sortedCandidates = List<CandidateCompareModel>.from(_candidates);
     sortedCandidates.sort((a, b) {
-      if (_sortBy == 'Experience') return b.summary.experienceScore.compareTo(a.summary.experienceScore);
-      if (_sortBy == 'Communication') return b.summary.communicationScore.compareTo(a.summary.communicationScore);
-      if (_sortBy == 'Technical') return b.summary.technicalScore.compareTo(a.summary.technicalScore);
-      return b.summary.totalScore.compareTo(a.summary.totalScore); // Default Total Score
+      if (_sortBy == 'Experience')
+        return b.summary.experienceScore.compareTo(a.summary.experienceScore);
+      if (_sortBy == 'Communication')
+        return b.summary.communicationScore.compareTo(
+          a.summary.communicationScore,
+        );
+      if (_sortBy == 'Technical')
+        return b.summary.technicalScore.compareTo(a.summary.technicalScore);
+      return b.summary.totalScore.compareTo(
+        a.summary.totalScore,
+      ); // Default Total Score
     });
 
     return Scaffold(
@@ -73,7 +83,10 @@ class _CompareCandidatesPageState extends State<CompareCandidatesPage> {
       appBar: AppBar(
         foregroundColor: AppColors.textPrimary,
         backgroundColor: AppColors.primary,
-        title: Text("Compare candidates", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text(
+          "Compare candidates",
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         actions: [
           if (_candidates.length >= 2)
             IconButton(
@@ -83,65 +96,87 @@ class _CompareCandidatesPageState extends State<CompareCandidatesPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => CompareOneOnOneMockPage(candidates: _candidates),
+                    builder: (context) =>
+                        CompareOneOnOneMockPage(candidates: _candidates),
                   ),
                 );
               },
-            )
+            ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _candidates.isEmpty
-              ? const Center(child: Text("No 'viewed' candidates to compare."))
-              : Column(
-                  children: [
-                    // Filter / Sort Bar
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text("Sort By:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppFontSizes.body)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _sortBy,
-                                items: ['Total Score', 'Experience', 'Communication', 'Technical']
-                                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+          ? const Center(child: Text("No 'viewed' candidates to compare."))
+          : Column(
+              children: [
+                // Filter / Sort Bar
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Sort By:",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: AppFontSizes.body,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _sortBy,
+                            items:
+                                [
+                                      'Total Score',
+                                      'Experience',
+                                      'Communication',
+                                      'Technical',
+                                    ]
+                                    .map(
+                                      (e) => DropdownMenuItem(
+                                        value: e,
+                                        child: Text(e),
+                                      ),
+                                    )
                                     .toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() {
-                                      _sortBy = val;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          )
-                        ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _sortBy = val;
+                                });
+                              }
+                            },
+                          ),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: sortedCandidates.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 16),
-                        itemBuilder: (context, index) {
-                          final cand = sortedCandidates[index];
-                          return _buildCandidateCard(cand);
-                        },
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    itemCount: sortedCandidates.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final cand = sortedCandidates[index];
+                      return _buildCandidateCard(cand);
+                    },
+                  ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -150,13 +185,16 @@ class _CompareCandidatesPageState extends State<CompareCandidatesPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary, width: 2), // Stronger border
+        border: Border.all(
+          color: AppColors.primary,
+          width: 2,
+        ), // Stronger border
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Material(
@@ -169,7 +207,7 @@ class _CompareCandidatesPageState extends State<CompareCandidatesPage> {
               context,
               MaterialPageRoute(
                 builder: (context) => CandidateResumePage(
-                  candidateId: cand.interviewId,
+                  candidateId: cand.candidateId,
                   interviewId: cand.interviewId,
                   candidateName: cand.candidateName,
                   initialStatus: Status.view,
@@ -189,21 +227,30 @@ class _CompareCandidatesPageState extends State<CompareCandidatesPage> {
                     Expanded(
                       child: Text(
                         cand.candidateName,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: AppFontSizes.subtitle),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: AppFontSizes.subtitle,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         "Score: ${(cand.summary.totalScore * 10).toStringAsFixed(1)}",
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
                       ),
-                    )
+                    ),
                   ],
                 ),
                 const Divider(height: 24),
@@ -219,13 +266,43 @@ class _CompareCandidatesPageState extends State<CompareCandidatesPage> {
                 const SizedBox(height: 16),
                 // Strengths & Weaknesses
                 if (cand.summary.strengths.isNotEmpty) ...[
-                  Text("Strengths", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green[700])),
-                  ...cand.summary.strengths.take(2).map((s) => Text("• ${s.title}", style: const TextStyle(fontSize: AppFontSizes.caption))),
+                  Text(
+                    "Strengths",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                  ...cand.summary.strengths
+                      .take(2)
+                      .map(
+                        (s) => Text(
+                          "• ${s.title}",
+                          style: const TextStyle(
+                            fontSize: AppFontSizes.caption,
+                          ),
+                        ),
+                      ),
                   const SizedBox(height: 8),
                 ],
                 if (cand.summary.weaknesses.isNotEmpty) ...[
-                  Text("Weaknesses", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange[800])),
-                  ...cand.summary.weaknesses.take(2).map((w) => Text("• ${w.title}", style: const TextStyle(fontSize: AppFontSizes.caption))),
+                  Text(
+                    "Weaknesses",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[800],
+                    ),
+                  ),
+                  ...cand.summary.weaknesses
+                      .take(2)
+                      .map(
+                        (w) => Text(
+                          "• ${w.title}",
+                          style: const TextStyle(
+                            fontSize: AppFontSizes.caption,
+                          ),
+                        ),
+                      ),
                 ],
               ],
             ),
@@ -238,9 +315,21 @@ class _CompareCandidatesPageState extends State<CompareCandidatesPage> {
   Widget _buildScoreItem(String label, double score) {
     return Column(
       children: [
-        Text(label, style: TextStyle(fontSize: AppFontSizes.caption, color: Colors.grey[600])),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: AppFontSizes.caption,
+            color: Colors.grey[600],
+          ),
+        ),
         const SizedBox(height: 4),
-        Text((score * 10).toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: AppFontSizes.body)),
+        Text(
+          (score * 10).toStringAsFixed(1),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: AppFontSizes.body,
+          ),
+        ),
       ],
     );
   }

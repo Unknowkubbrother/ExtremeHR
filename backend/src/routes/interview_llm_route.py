@@ -41,6 +41,7 @@ class EvaluateRequest(BaseModel):
 
 class CandidateCompareResponse(BaseModel):
     interview_id: int
+    candidate_id: int
     candidate_name: str
     summary: InterviewSummaryModel
 
@@ -437,7 +438,7 @@ def get_job_comparison(
 
     # 2. Find all 'viewed' interviews for this job
     sql_get_interviews = text("""
-        SELECT i.id, u.username as candidate_name
+        SELECT i.id, i.user_id as candidate_id, u.username as candidate_name
         FROM interviews i
         JOIN users u ON i.user_id = u.id
         WHERE i.job_id = :job_id AND i.status = :status AND i.is_active = true
@@ -454,6 +455,7 @@ def get_job_comparison(
             results.append(
                 CandidateCompareResponse(
                     interview_id=row.id,
+                    candidate_id=row.candidate_id,
                     candidate_name=row.candidate_name,
                     summary=summary,
                 )
