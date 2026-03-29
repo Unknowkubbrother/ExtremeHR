@@ -7,6 +7,10 @@ import 'package:client/src/services/auth_storage.dart';
 import 'package:client/src/services/interview_service.dart';
 import 'package:flutter/material.dart';
 
+import 'package:client/src/components/HR/interview/compare_candidates_page.dart';
+import 'package:client/src/models/status_enum.dart';
+import 'package:client/src/components/HR/interview/candidate_search_page.dart';
+
 class CandidateListPage extends StatefulWidget {
   final String jobId;
   final String jobTitle;
@@ -75,15 +79,71 @@ class _CandidateListPageState extends State<CandidateListPage> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  "Total Candidates: ${_candidates.length}",
-                  style: TextStyle(
-                    fontSize: AppFontSizes.body,
-                    fontWeight: FontWeight.bold,
+                if (_candidates.any((c) => c.state == Status.view))
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CompareCandidatesPage(
+                            jobId: widget.jobId,
+                            jobTitle: widget.jobTitle,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.compare_arrows),
+                    label: const Text("Compare Candidates"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.textPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
+                if (_candidates.any((c) => c.state == Status.view))
+                  const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CandidateSearchPage(
+                          jobId: widget.jobId,
+                          jobTitle: widget.jobTitle,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.psychology, color: Colors.white),
+                  label: const Text("AI Candidate Search"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo[800],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                if (_candidates.isNotEmpty) const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Total Candidates: ${_candidates.length}",
+                      style: TextStyle(
+                        fontSize: AppFontSizes.body,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

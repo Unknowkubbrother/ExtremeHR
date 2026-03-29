@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:client/src/models/user_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:client/src/services/api_helper.dart';
 
 class UserServices {
   Future<UserLoginResponse> login(UserLogin user) async {
@@ -34,13 +35,13 @@ class UserServices {
 
   Future<UserModel> me(String token) async {
     final apiUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000';
-    final response = await http.get(
+    final response = ApiHelper.handleResponse(await http.get(
       Uri.parse('$apiUrl/auth/me'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-    );
+    ));
     if (response.statusCode == 200) {
       return UserModel.fromJson(jsonDecode(response.body));
     } else {
@@ -60,14 +61,14 @@ class UserServices {
       body['password'] = password;
     }
 
-    final response = await http.post(
+    final response = ApiHelper.handleResponse(await http.post(
       Uri.parse('$apiUrl/auth/me'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode(body),
-    );
+    ));
     if (response.statusCode == 200) {
       return UserModel.fromJson(jsonDecode(response.body));
     } else {

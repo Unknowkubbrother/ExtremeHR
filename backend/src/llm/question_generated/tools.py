@@ -1,186 +1,90 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from langchain_classic.agents import Tool
 import json
 
-def build_tools(db: Session):
-    def get_job_core(interview_id_str: str) -> str:
-        try:
-            interview_id = int(str(interview_id_str).strip())
-            query = text("""
-                SELECT j.title, j.description, j.responsibilities, j.qualifications, j.job_fields
-                FROM interviews i
-                JOIN jobs j ON i.job_id = j.id
-                WHERE i.id = :id
-            """)
-            row = db.execute(query, {"id": interview_id}).first()
-            if not row:
-                return json.dumps({"error": "Interview or job not found"})
-            
-            return json.dumps({
-                "title": row.title,
-                "description": row.description,
-                "responsibilities": row.responsibilities or [],
-                "qualifications": row.qualifications or [],
-                "job_fields": row.job_fields or [],
-            }, ensure_ascii=False)
-        except Exception as e:
-            db.rollback()
-            return json.dumps({"error": "could not retrieve job core"}, ensure_ascii=False)
+def get_full_interview_context(db: Session, interview_id: int) -> str:
+    """
+    Fetches job core details, required skills, and candidate's resume (skills, experience, projects)
+    in a single deterministic call instead of multiple individual agent tool invocations.
+    Returns a JSON string of the consolidated context.
+    """
+    try:
+        # Job Details
+        job_query = text("""
+            SELECT j.title, j.description, j.responsibilities, j.qualifications, j.job_fields, j.skills
+            FROM interviews i
+            JOIN jobs j ON i.job_id = j.id
+            WHERE i.id = :id
+        """)
+        job_row = db.execute(job_query, {"id": interview_id}).first()
+        job_data = {
+            "title": job_row.title if job_row else "",
+            "description": job_row.description if job_row else "",
+            "responsibilities": job_row.responsibilities if job_row else [],
+            "qualifications": job_row.qualifications if job_row else [],
+            "job_fields": job_row.job_fields if job_row else [],
+            "skills": job_row.skills if job_row else []
+        }
 
-    def get_job_skills(interview_id_str: str) -> str:
-        try:
-            interview_id = int(str(interview_id_str).strip())
-            query = text("""
-                SELECT j.skills 
-                FROM interviews i
-                JOIN jobs j ON i.job_id = j.id
-                WHERE i.id = :id
-                ORDER BY RANDOM()
-                LIMIT 5
-            """)
-            row = db.execute(query, {"id": interview_id}).first()
-            if not row:
-                return json.dumps({"error": "Interview or job not found"})
+        # Candidate Skills
+        skills_query = text("""
+            SELECT s.name 
+            FROM interviews i
+            JOIN users u ON i.user_id = u.id
+            JOIN resumes r ON u.id = r.user_id
+            JOIN resume_skills s ON r.id = s.resume_id
+            WHERE i.id = :id
+            ORDER BY s.id DESC
+        """)
+        skills_rows = db.execute(skills_query, {"id": interview_id}).fetchall()
+        candidate_skills = [r.name for r in skills_rows] if skills_rows else []
 
-            return json.dumps({
-                "skills": row.skills or [],
-            }, ensure_ascii=False)
-        except Exception as e:
-            db.rollback()
-            return json.dumps({"skills": []}, ensure_ascii=False)
+        # Candidate Experience
+        exp_query = text("""
+            SELECT e.company, e.role, e.start_year, e.start_month, e.end_year, e.end_month, e.description 
+            FROM interviews i
+            JOIN users u ON i.user_id = u.id
+            JOIN resumes r ON u.id = r.user_id
+            JOIN resume_experience e ON r.id = e.resume_id
+            WHERE i.id = :id
+            ORDER BY e.start_year DESC NULLS LAST, e.start_month DESC NULLS LAST
+        """)
+        exp_rows = db.execute(exp_query, {"id": interview_id}).fetchall()
+        candidate_exp = [{
+            "company": r.company,
+            "role": r.role,
+            "start_year": r.start_year,
+            "start_month": r.start_month,
+            "end_year": r.end_year,
+            "end_month": r.end_month,
+            "description": r.description
+        } for r in exp_rows] if exp_rows else []
 
-    def get_resume_skills(interview_id_str: str) -> str:
-        try:
-            interview_id = int(str(interview_id_str).strip())
-            query = text("""
-                SELECT s.name 
-                FROM interviews i
-                JOIN users u ON i.user_id = u.id
-                JOIN resumes r ON u.id = r.user_id
-                JOIN resume_skills s ON r.id = s.resume_id
-                WHERE i.id = :id
-                ORDER BY RANDOM()
-                LIMIT 5
-            """)
-            rows = db.execute(query, {"id": interview_id}).fetchall()
-            return json.dumps({
-                "skills": [r.name for r in rows] if rows else []
-            }, ensure_ascii=False)
-        except Exception as e:
-            db.rollback()
-            return json.dumps({"skills": []}, ensure_ascii=False)
+        # Candidate Projects
+        proj_query = text("""
+            SELECT p.title, p.description 
+            FROM interviews i
+            JOIN users u ON i.user_id = u.id
+            JOIN resumes r ON u.id = r.user_id
+            JOIN resume_projects p ON r.id = p.resume_id
+            WHERE i.id = :id
+            ORDER BY p.id DESC
+        """)
+        proj_rows = db.execute(proj_query, {"id": interview_id}).fetchall()
+        candidate_proj = [{
+            "title": r.title,
+            "description": r.description
+        } for r in proj_rows] if proj_rows else []
 
-    def get_resume_experience(interview_id_str: str) -> str:
-        try:
-            interview_id = int(str(interview_id_str).strip())
-            query = text("""
-                SELECT e.company, e.role, e.start_year, e.start_month, e.end_year, e.end_month, e.description 
-                FROM interviews i
-                JOIN users u ON i.user_id = u.id
-                JOIN resumes r ON u.id = r.user_id
-                JOIN resume_experience e ON r.id = e.resume_id
-                WHERE i.id = :id
-            """)
-            rows = db.execute(query, {"id": interview_id}).fetchall()
-            
-            return json.dumps({
-                "experience": [
-                    {
-                        "company": row.company,
-                        "role": row.role,
-                        "start_year": row.start_year,
-                        "start_month": row.start_month,
-                        "end_year": row.end_year,
-                        "end_month": row.end_month,
-                        "description": row.description,
-                    }
-                    for row in rows
-                ]
-            }, ensure_ascii=False)
-        except Exception as e:
-            db.rollback()
-            return json.dumps({"experience": []}, ensure_ascii=False)
-
-    def get_resume_projects(interview_id_str: str) -> str:
-        try:
-            interview_id = int(str(interview_id_str).strip())
-            query = text("""
-                SELECT p.title, p.description 
-                FROM interviews i
-                JOIN users u ON i.user_id = u.id
-                JOIN resumes r ON u.id = r.user_id
-                JOIN resume_projects p ON r.id = p.resume_id
-                WHERE i.id = :id
-            """)
-            rows = db.execute(query, {"id": interview_id}).fetchall()
-            
-            return json.dumps({
-                "projects": [
-                    {
-                        "title": row.title,
-                        "description": row.description,
-                    }
-                    for row in rows
-                ]
-            }, ensure_ascii=False)
-        except Exception as e:
-            db.rollback()
-            return json.dumps({"projects": []}, ensure_ascii=False)
-
-    # def get_previous_questions(interview_id_str: str) -> str:
-    #     try:
-    #         interview_id = int(str(interview_id_str).strip())
-    #         query = text("""
-    #             SELECT question, expected_answer
-    #             FROM interview_questions 
-    #             WHERE interview_id = :id
-    #         """)
-    #         rows = db.execute(query, {"id": interview_id}).fetchall()
-            
-    #         questions = []
-    #         for row in rows:
-    #             questions.append({
-    #                 "question": row.question,
-    #             })
-
-    #         return json.dumps({"questions": questions}, ensure_ascii=False)
-    #     except Exception as e:
-    #         db.rollback()
-    #         return json.dumps({"questions": []}, ensure_ascii=False)
-
-
-    tools = [
-        Tool(
-            name="GetJobCore",
-            func=get_job_core,
-            description="Use this tool to get the core job description and responsibilities. Input should be the interview_id as a string."
-        ),
-        Tool(
-            name="GetJobSkills",
-            func=get_job_skills,
-            description="Use this tool to get the required job skills. Input should be the interview_id as a string."
-        ),
-        Tool(
-            name="GetResumeSkills",
-            func=get_resume_skills,
-            description="Use this tool to get the candidate's resume skills. Input should be the interview_id as a string."
-        ),
-        Tool(
-            name="GetResumeExperience",
-            func=get_resume_experience,
-            description="Use this tool to get the candidate's work experience. Input should be the interview_id as a string."
-        ),
-        Tool(
-            name="GetResumeProjects",
-            func=get_resume_projects,
-            description="Use this tool to get the candidate's projects. Input should be the interview_id as a string."
-        ),
-        # Tool(
-        #     name="GetPreviousQuestions",
-        #     func=get_previous_questions,
-        #     description="Use this tool to get the previously generated or asked interview questions. Input should be the interview_id as a string."
-        # ),
-    ]
-
-    return tools
+        return json.dumps({
+            "job": job_data,
+            "candidate": {
+                "skills": candidate_skills,
+                "experience": candidate_exp,
+                "projects": candidate_proj
+            }
+        }, ensure_ascii=False)
+        
+    except Exception as e:
+        db.rollback()
+        return json.dumps({"error": f"Failed to get context: {str(e)}"}, ensure_ascii=False)

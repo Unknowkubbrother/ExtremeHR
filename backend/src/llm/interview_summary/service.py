@@ -8,6 +8,7 @@ from src.llm.interview_summary.agent import (
     extract_json_text,
     get_llm,
 )
+from src.llm.interview_summary.hr_extractor import process_unscored_hr_questions
 from src.llm.interview_summary.tools import build_tools
 
 PLACEHOLDER_SUMMARY_SIGNATURE = {
@@ -316,8 +317,15 @@ def generate_interview_summary(db: Session, interview_id: int) -> InterviewSumma
     if not db.execute(query, {"id": interview_id}).first():
         raise LookupError("Interview not found")
 
+    try:
+        process_unscored_hr_questions(db, interview_id)
+    except Exception as e:
+        print(f"Failed to process HR questions: {e}")
+
     summary_inputs = _prepare_summary_inputs(db, interview_id)
     llm = get_llm(temperature=0.1)
+
+    print(summary_inputs["questions"])
 
     prompt = f"""
 You are an HR interview evaluation assistant.

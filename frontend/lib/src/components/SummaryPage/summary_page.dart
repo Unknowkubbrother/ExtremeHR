@@ -2,6 +2,7 @@ import 'package:client/src/components/ResumePage/card_content.dart';
 import 'package:client/src/components/shared/confirm.dart';
 import 'package:client/src/constants/app_colors.dart';
 import 'package:client/src/constants/app_font_sizes.dart';
+import 'package:client/src/models/chatmessage_model.dart';
 import 'package:client/src/models/interview_model.dart';
 import 'package:client/src/services/auth_storage.dart';
 import 'package:client/src/services/interview_service.dart';
@@ -42,6 +43,8 @@ class _SummaryPageState extends State<SummaryPage> {
   );
 
   InterviewSummary? _summary;
+  List<ChatMessage>? _chatHistory;
+  List<InterviewQuestionModel>? _interviewQuestions;
   bool _isLoading = true;
   bool _isGenerating = false;
   bool _isDecisionUpdating = false;
@@ -70,12 +73,24 @@ class _SummaryPageState extends State<SummaryPage> {
         widget.interviewId,
       );
 
+      final history = await _interviewService.getChatHistory(
+        token,
+        widget.interviewId,
+      );
+
+      final questions = await _interviewService.getInterviewQuestions(
+        token,
+        widget.interviewId,
+      );
+
       if (!mounted) {
         return;
       }
 
       setState(() {
         _summary = summary;
+        _chatHistory = history;
+        _interviewQuestions = questions;
         _isLoading = false;
       });
     } catch (e) {
@@ -224,7 +239,7 @@ class _SummaryPageState extends State<SummaryPage> {
       children: [
         _buildScoreCard(_summary!),
         const SizedBox(height: 20),
-        _buildMetaCard(_summary!),
+        _buildUnifiedScoreCard(_summary!),
         const SizedBox(height: 16),
         _buildTextCard(
           title: 'Executive Summary',
@@ -247,7 +262,9 @@ class _SummaryPageState extends State<SummaryPage> {
           points: _summary!.weaknesses,
         ),
         const SizedBox(height: 16),
-        _buildEvidenceCard(_summary!),
+        _buildQuestionsCard(),
+        const SizedBox(height: 16),
+        _buildChatHistoryCard(),
         const SizedBox(height: 16),
         _buildRedFlagCard(_summary!),
         const SizedBox(height: 16),
@@ -406,13 +423,28 @@ class _SummaryPageState extends State<SummaryPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      summary.totalScore.toStringAsFixed(2),
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 46,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          (summary.totalScore * 10).toStringAsFixed(2),
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 46,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '/10',
+                          style: TextStyle(
+                            color: AppColors.textPrimary.withValues(alpha: 0.7),
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -484,67 +516,99 @@ class _SummaryPageState extends State<SummaryPage> {
     );
   }
 
-  Widget _buildMetaCard(InterviewSummary summary) {
+  Widget _buildUnifiedScoreCard(InterviewSummary summary) {
     return CardContent(
+      header: Row(
+        children: [
+          Icon(Icons.analytics_outlined, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Text(
+            'Score & Evidence',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: AppFontSizes.subtitle,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Score Breakdown',
-            style: TextStyle(
-              fontSize: AppFontSizes.subtitle,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimaryTo,
-            ),
-          ),
+          _buildCombinedMetricItem('Experience', summary.experienceScore * 10, summary.evidence.experience, AppColors.primary),
           const SizedBox(height: 16),
-          _buildMetricRow('Experience', summary.experienceScore),
-          const SizedBox(height: 14),
-          _buildMetricRow('Communication', summary.communicationScore),
-          const SizedBox(height: 14),
-          _buildMetricRow('Technical', summary.technicalScore),
+          _buildCombinedMetricItem('Communication', summary.communicationScore * 10, summary.evidence.communication, AppColors.secondary),
+          const SizedBox(height: 16),
+          _buildCombinedMetricItem('Technical', summary.technicalScore * 10, summary.evidence.technical, AppColors.positiveColor),
         ],
       ),
     );
   }
 
-  Widget _buildMetricRow(String label, double value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: AppFontSizes.body,
-                  color: AppColors.textPrimaryTo,
-                  fontWeight: FontWeight.w600,
+  Widget _buildCombinedMetricItem(String label, double score, String evidence, Color accentColor) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: AppFontSizes.body,
+                    color: AppColors.textPrimaryTo,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
-            Text(
-              value.toStringAsFixed(2),
-              style: TextStyle(
-                fontSize: AppFontSizes.body,
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
+              Text(
+                'Score: ${score.toStringAsFixed(2)}/10',
+                style: TextStyle(
+                  fontSize: AppFontSizes.body,
+                  color: accentColor,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            value: value.clamp(0, 1),
-            minHeight: 10,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.10),
-            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: score.clamp(0, 10) / 10,
+              minHeight: 10,
+              backgroundColor: accentColor.withValues(alpha: 0.10),
+              valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Reason:',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            evidence,
+            style: TextStyle(
+              fontSize: AppFontSizes.body,
+              color: AppColors.textPrimaryTo,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -611,14 +675,18 @@ class _SummaryPageState extends State<SummaryPage> {
     );
   }
 
-  Widget _buildEvidenceCard(InterviewSummary summary) {
+  Widget _buildQuestionsCard() {
+    if (_interviewQuestions == null || _interviewQuestions!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return CardContent(
       header: Row(
         children: [
-          Icon(Icons.fact_check_outlined, color: AppColors.primary),
+          Icon(Icons.help_outline, color: AppColors.primary),
           const SizedBox(width: 8),
           Text(
-            'Evidence',
+            'Q&A Summary',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: AppFontSizes.subtitle,
@@ -628,58 +696,207 @@ class _SummaryPageState extends State<SummaryPage> {
         ],
       ),
       child: Column(
-        children: [
-          _buildEvidenceItem(
-            'Experience',
-            summary.evidence.experience,
-            AppColors.primary,
-          ),
-          const SizedBox(height: 12),
-          _buildEvidenceItem(
-            'Communication',
-            summary.evidence.communication,
-            AppColors.secondary,
-          ),
-          const SizedBox(height: 12),
-          _buildEvidenceItem(
-            'Technical',
-            summary.evidence.technical,
-            AppColors.positiveColor,
-          ),
-        ],
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _interviewQuestions!.map((q) {
+          final scoreStr = q.score != null ? '${(q.score! * 10).toStringAsFixed(2)}/10' : '-';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Q',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          q.question,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: AppFontSizes.body,
+                            color: AppColors.textPrimaryTo,
+                          ),
+                        ),
+                      ),
+                      if (q.score != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.positiveColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            scoreStr,
+                            style: TextStyle(
+                              color: AppColors.positiveColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (q.userAnswer != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Candidate Answer:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      q.userAnswer!,
+                      style: TextStyle(
+                        fontSize: AppFontSizes.body,
+                        color: AppColors.textPrimaryTo,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                  if (q.reason != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Evaluation Reason:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      q.reason!,
+                      style: TextStyle(
+                        fontSize: AppFontSizes.body,
+                        color: AppColors.textPrimaryTo,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildEvidenceItem(String title, String value, Color accentColor) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: accentColor.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accentColor.withValues(alpha: 0.14)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildChatHistoryCard() {
+    if (_chatHistory == null || _chatHistory!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return CardContent(
+      header: Row(
         children: [
+          Icon(Icons.chat_bubble_outline, color: AppColors.primary),
+          const SizedBox(width: 8),
           Text(
-            title,
+            'Chat History',
             style: TextStyle(
-              fontSize: AppFontSizes.body,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimaryTo,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: AppFontSizes.body,
-              color: AppColors.textSecondary,
+              fontWeight: FontWeight.bold,
+              fontSize: AppFontSizes.subtitle,
+              color: AppColors.primary,
             ),
           ),
         ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _chatHistory!.map((msg) {
+          final isHR = msg.role.toLowerCase() == 'hr';
+          final isAI = msg.role.toLowerCase() == 'ai';
+          final name = isHR ? 'HR' : (isAI ? 'AI' : 'Candidate');
+          final color = isHR ? AppColors.primary : (isAI ? Colors.purple : AppColors.secondary);
+          
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      name[0],
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+                        ),
+                        child: Text(
+                          msg.displayText,
+                          style: TextStyle(
+                            fontSize: AppFontSizes.body,
+                            color: AppColors.textPrimaryTo,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
