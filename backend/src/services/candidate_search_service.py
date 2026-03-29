@@ -20,25 +20,31 @@ class CandidateSearchService:
             collection_metadata={"hnsw:space": "cosine"}
         )
 
-    def init_embeddings(self, documents: List[Document]):
-        """Adds documents to the vector store."""
+    def init_embeddings(self, documents: List[Document]) -> bool:
+        """Adds documents to the vector store. Returns True if added, False if skipped."""
         if not documents:
-            return
+            return False
         
-        # Check if already exists for these interview_ids (metadata filter)
-        # For simplicity, we can delete existing and add new or just add
-        # Based on user: "ไม่ emb ซ้ำนะ"
+        # 1. Get unique interview IDs from documents
+        interview_ids = list(set([str(doc.metadata["interview_id"]) for doc in documents]))
         
-        # 1. Get existing IDs for these interview_ids
-        interview_ids = list(set([doc.metadata["interview_id"] for doc in documents]))
+        # 2. Check existence and log
+        contains_existing = False
         for iid in interview_ids:
             existing = self.vectorstore._collection.get(where={"interview_id": iid})
             if existing["ids"]:
-                # If already exists, we skip or update?
-                # User says: "กำลังเตรียม... ตรวจตลอดว่าคนไหน emb แล้วหรือยัง ไม่ emb ซ้ำนะ"
-                return # Already embedded
+                contains_existing = True
+                print(f"      - [AI Embed] Status: ALREADY embedded. Skipping this candidate.")
+                break
+        
+        if contains_existing:
+            return False
 
+        # 3. Add to vector store
+        print(f"      - [AI Embed] Status: NEW. Preparing to embed {len(documents)} document chunks...")
         self.vectorstore.add_documents(documents)
+        print(f"      - [AI Embed] Successfully added chunks to VectorDB.")
+        return True
 
     def search_candidates(self, job_id: int, query: str, k: int = 10) -> List[Dict]:
         """Performs Hybrid RAG search and returns ranked candidates."""
@@ -94,13 +100,10 @@ class CandidateSearchService:
                 if len(candidate_data[cid]["chunks"]) < 5:
                     candidate_data[cid]["chunks"].append(doc.page_content)
 
-        # 4. Sort candidates by Hybrid Score and identify Top 20
-        top_20 = sorted(candidate_data.values(), key=lambda x: x["best_score"], reverse=True)[:20]
+        # 4. Sort candidates by Hybrid Score and identify Top 10 for LLM Ranking
+        top_10 = sorted(candidate_data.values(), key=lambda x: x["best_score"], reverse=True)[:10]
         
-        # 5. Select Top 10 for LLM Ranking
-        top_10 = top_20[:10]
-        
-        print(f"[AI Search] Hybrid search found {len(candidate_data)} candidates. Selected Top 10 for LLM.")
+        print(f"[AI Search] Hybrid search found {len(candidate_data)} candidates. Selected Top {len(top_10)} for LLM.")
         for i, c in enumerate(top_10):
             print(f"  #{i+1}: Candidate {c['candidate_id']} (Score: {c['best_score']:.4f})")
 
@@ -110,13 +113,13 @@ class CandidateSearchService:
     def _rewrite_query(self, query: str) -> str:
         """Transforms the user query into a more descriptive prompt for better retrieval."""
         prompt = f"""
-คุณคือผู้เชี่ยวชาญด้านการสรรหาบุคลากร (HR Recruiter) 
-หน้าที่ของคุณคือรับคำค้นหา (Search Query) ภาษาไทยสั้นๆ จาก HR และปรับแต่งให้เป็นคำบรรยายที่ละเอียดขึ้น เพื่อใช้ในการค้นหาโปรไฟล์ผู้สมัครงาน
-ให้ระบุทักษะ (Skills), คุณสมบัติ (Qualities), หรือ ประสบการณ์ (Experience) ที่เกี่ยวข้องกับคำค้นหานั้นๆ
+You are an HR Recruitment Expert. 
+Your task is to take a short search query from HR and expand it into a detailed description to improve candidate retrieval.
+Identify relevant Skills, Qualities, and Experiences related to the query.
 
-คำค้นหาต้นฉบับ: "{query}"
+Original Query: "{query}"
 
-ให้ตอบกลับเฉพาะ "คำค้นหาที่ปรับปรุงแล้ว" เท่านั้น ไม่ต้องมีคำนำหน้าหรือสรุปใดๆ และคงภาษาไทยเป็นหลัก
+Return ONLY the "enhanced search query" without any preamble or summary. The output should be primarily in Thai to match the resume content.
 """
         rewritten = llm_generate_to_string(prompt).strip()
         # Clean markdown if present
@@ -139,23 +142,25 @@ class CandidateSearchService:
             print(f"  - Candidate {cand['candidate_id']}: Using {len(cand['chunks'])} context blocks.")
 
         prompt = f"""
-คุณคือผู้เชี่ยวชาญด้าน HR
-โปรดประเมินผู้สมัครต่อไปนี้ตามคำถาม/คำค้นหา: "{query}"
+You are an HR Expert. 
+Evaluate the following candidates based on this search query: "{query}"
 
-รายชื่อผู้สมัครและข้อมูลที่เกี่ยวข้อง:
+Candidates and relevant context:
 {candidates_str}
 
-ให้คะแนนแต่ละคน (0-10) ตามความเหมาะสมกับคำค้นหา พร้อมสรุปเหตุผลสั้นๆ เป็นภาษาไทย
-ตอบกลับเป็น JSON Array รูปแบบดังนี้เท่านั้น:
+Score each candidate from 0.0 to 10.0 based on their match with the query. 
+Provide a brief reason for the score in Thai for the HR user.
+
+Return ONLY a JSON Array in this exact format:
 [
   {{
     "candidate_id": "ID",
     "interview_id": "ID",
     "score": 0.0,
-    "reason": "สรุปเหตุผลการพิจารณา..."
+    "reason": "Brief justification in Thai..."
   }}
 ]
-ห้ามมีคำนำหน้าหรือข้อมูลอื่นนอกจาก JSON
+Do not include any other text or explanation.
 """
 
         print(prompt)
@@ -191,7 +196,7 @@ class CandidateSearchService:
                     "candidate_id": cand["candidate_id"],
                     "interview_id": cand["interview_id"],
                     "score": round(cand["best_score"] * 10, 1),
-                    "reason": "ใช้คะแนนจากความคล้ายคลึงของข้อความ (Fallback)",
+                    "reason": "Score based on text similarity (Fallback)",
                     "evidence": cand["chunks"][:3]
                 })
             return fallback

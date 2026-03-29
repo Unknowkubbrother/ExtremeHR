@@ -280,21 +280,22 @@ async def get_interview_context(interview_id: int, db: Session = Depends(get_db)
 
 
     prompt_template = f"""
-คุณคือผู้ช่วย HR สำหรับเตรียม context ก่อนสัมภาษณ์งาน
+You are an HR Assistant responsible for preparing context before a job interview.
 
-โปรดวิเคราะห์ข้อมูล job และ resume แล้วสรุปเป็นข้อความภาษาไทยแบบกระชับ
-โดยให้เนื้อหาครอบคลุมประเด็นต่อไปนี้อย่างเป็นธรรมชาติในย่อหน้าเดียว:
-ตำแหน่งนี้ต้องการทักษะหรือคุณสมบัติสำคัญอะไร ผู้สมัครมีประสบการณ์ ทักษะ การศึกษา หรือโปรเจกต์ใดที่เกี่ยวข้อง
-ผู้สมัครมีความเหมาะสมกับตำแหน่งนี้ในด้านใดบ้าง และมีประเด็นไหนที่ HR ควรถามเพิ่มเพื่อประเมินให้ชัดขึ้น
+Please analyze the job and resume data and provide a concise summary in Thai.
+The summary should naturally cover the following points in a single paragraph:
+- What key skills or qualities does this position require? 
+- What relevant experience, skills, education, or projects does the candidate have that match?
+- In what ways is the candidate suitable for this position, and are there any gaps or points HR should ask more about for a clearer assessment?
 
-กติกา:
-ตอบเป็น plain text เท่านั้น
-ห้ามใช้ markdown ทุกชนิด
-ห้ามทำเป็นข้อ
-ห้ามใส่สัญลักษณ์นำหน้า
-ห้ามแต่งข้อมูลเพิ่มจาก input
-หากข้อมูลซ้ำกันให้สรุปรวมอย่างกระชับ
-ความยาวไม่เกิน 1200 ตัวอักษร
+Rules:
+- Respond in plain text only.
+- Do not use any markdown.
+- Do not use bullet points or lists.
+- Do not use numbering or prefix symbols.
+- Do not invent information beyond the provided input.
+- If information is redundant, summarize it concisely.
+- Maximum length: 1200 characters.
 
 job:
 {job_context}
