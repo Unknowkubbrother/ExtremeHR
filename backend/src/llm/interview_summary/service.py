@@ -11,11 +11,7 @@ from src.llm.interview_summary.agent import (
 from src.llm.interview_summary.hr_extractor import process_unscored_hr_questions
 from src.llm.interview_summary.tools import build_tools
 
-PLACEHOLDER_SUMMARY_SIGNATURE = {
-    "recommendation": "hold",
-    "suggestion_summary": "ผู้สมัครมีศักยภาพและสื่อสารได้ดี แต่ควรมีการประเมินเชิงเทคนิคเพิ่มเติมก่อนตัดสินใจ",
-    "next_step": "แนะนำให้มี technical interview รอบถัดไปโดยเน้น architecture และ debugging",
-}
+
 
 
 def _clamp_score(value, fallback: float = 0.0) -> float:
@@ -158,24 +154,7 @@ def _parse_llm_summary_response(raw_text: str) -> InterviewSummaryModel:
     return InterviewSummaryModel.model_validate(normalized_data)
 
 
-def _looks_like_placeholder_summary(summary: InterviewSummaryModel) -> bool:
-    data = summary.model_dump()
-    if (
-        data.get("recommendation") == PLACEHOLDER_SUMMARY_SIGNATURE["recommendation"]
-        and data.get("suggestion_summary")
-        == PLACEHOLDER_SUMMARY_SIGNATURE["suggestion_summary"]
-        and data.get("next_step") == PLACEHOLDER_SUMMARY_SIGNATURE["next_step"]
-    ):
-        strengths = data.get("strengths") or []
-        weaknesses = data.get("weaknesses") or []
-        if strengths and weaknesses:
-            first_strength = strengths[0]
-            first_weakness = weaknesses[0]
-            return (
-                first_strength.get("title") == "สื่อสารชัดเจน"
-                and first_weakness.get("title") == "ประสบการณ์ตรงยังน้อย"
-            )
-    return False
+
 
 
 def _deserialize_json_field(value):
@@ -397,8 +376,6 @@ RECENT CHAT SUMMARY:
         response = llm.invoke(prompt)
         raw_output = response.content if hasattr(response, "content") else str(response)
         summary = _parse_llm_summary_response(raw_output)
-        if _looks_like_placeholder_summary(summary):
-            raise ValueError("LLM returned placeholder summary content.")
         return summary
     except Exception:
         try:
@@ -416,8 +393,6 @@ CONTENT:
                 else str(repair_response)
             )
             summary = _parse_llm_summary_response(repaired_output)
-            if _looks_like_placeholder_summary(summary):
-                raise ValueError("LLM returned placeholder summary content.")
             return summary
         except Exception:
             return _repair_summary_output(raw_output if 'raw_output' in locals() else prompt)

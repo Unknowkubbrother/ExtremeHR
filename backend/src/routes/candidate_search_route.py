@@ -11,6 +11,7 @@ from src.models.auth_model import User
 from src.models.interview_question_model import InterviewQuestion
 from src.models.chat_history_model import ChatHistory
 from src.models.interview_summary_model import InterviewSummary
+from src.enums.apply_status_enum import ApplyStatusEnum
 
 candidate_search_router = APIRouter()
 
@@ -30,9 +31,10 @@ def init_embedding(
     """Initializes or updates embeddings for all candidates of a job."""
     
     # 1. Get all viewed interviews for this job
-    # (Only viewed ones have summaries and complete data usually)
+    # User: "init_embeddings เอาแค่ interview ที่เป็น view เท่านั้นนะ"
     interviews = db.query(Interview).filter(
         Interview.job_id == request.job_id,
+        Interview.status == ApplyStatusEnum.VIEWED.value,
         Interview.is_active == True
     ).all()
     
